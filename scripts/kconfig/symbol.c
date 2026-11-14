@@ -1089,6 +1089,13 @@ static struct dep_stack {
 	struct expr *expr;
 } *check_top;
 
+/* Storage for the temporary top of the dependency chain.  The
+ * address is published through check_top, so it must have static
+ * storage; a stack object would dangle once sym_check_print_recursive
+ * returns and GCC 12+ warns about exactly that.
+ */
+static struct dep_stack cv_stack;
+
 static void dep_stack_insert(struct dep_stack *stack, struct symbol *sym)
 {
 	memset(stack, 0, sizeof(*stack));
@@ -1117,7 +1124,6 @@ static void sym_check_print_recursive(struct symbol *last_sym)
 	struct symbol *sym, *next_sym;
 	struct menu *menu = NULL;
 	struct property *prop;
-	struct dep_stack cv_stack;
 
 	if (sym_is_choice_value(last_sym)) {
 		dep_stack_insert(&cv_stack, last_sym);

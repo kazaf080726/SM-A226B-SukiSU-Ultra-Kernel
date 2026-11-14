@@ -186,6 +186,9 @@ strings out/arch/arm64/boot/Image | grep -icE 'kpimg|KernelPatch'   # 0
 # 全功能收尾检查（CI 同一脚本，65 项）
 bash ci/verify-features.sh
 
+# CI 构建日志必须零 warning / error
+bash ci/verify-log.sh build.log
+
 # 设备端
 dmesg | grep -i selinux_hook
 dmesg | grep -i nomount

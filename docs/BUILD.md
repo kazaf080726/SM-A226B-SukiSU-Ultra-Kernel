@@ -121,7 +121,9 @@ GitHub Actions 已默认开启，并用 `actions/cache` 缓存 `.ccache`（单�
 - `workflow_dispatch` → 手动触发一次；
 - 工具链用 `actions/cache` 缓存，第二次构建不再重复下载；
 - 构建末尾强制跑 `ci/verify-features.sh`（65 项：config、符号、12 个 hook、
-  Image 标记、PathMask、AnyKernel3），任何一项缺失即失败，不会上传产物或发 Release。
+  Image 标记、PathMask、AnyKernel3），任何一项缺失即失败，不会上传产物或发 Release；
+- 构建日志由 `ci/verify-log.sh` 扫描，出现任何 `warning:` / `error:` /
+  `Syntax error` 都会让 CI 失败，保证每条构建日志都是干净的。
 
 产物在 Actions run 页面的 Artifacts 里：`Image.gz`、`A226B-...zip`、
 `A226B-...-modules-...zip`、PathMask zip。

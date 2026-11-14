@@ -12,6 +12,9 @@
  * of the licence, or (at your option) any later version.
  */
 #define _GNU_SOURCE
+/* OpenSSL 3 deprecates the ENGINE API used below; keep the tool building
+ * warning-free without changing its behaviour. */
+#define OPENSSL_SUPPRESS_DEPRECATED
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>

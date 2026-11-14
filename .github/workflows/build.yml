@@ -69,7 +69,12 @@ jobs:
             ccache-${{ hashFiles('ci/fetch_toolchain.sh') }}-
 
       - name: Build kernel
-        run: bash ci/build.sh
+        run: |
+          set -o pipefail
+          bash ci/build.sh 2>&1 | tee build.log
+
+      - name: Verify warning-free build log
+        run: bash ci/verify-log.sh build.log
 
       - name: ccache stats
         run: ccache -s | tee ccache-stats.txt
@@ -89,6 +94,7 @@ jobs:
           cp -f ci/repro-date.txt artifacts/
           cp -f feature-verify.txt artifacts/ 2>/dev/null || true
           cp -f ccache-stats.txt artifacts/ 2>/dev/null || true
+          cp -f build.log artifacts/ 2>/dev/null || true
           echo "=== artifacts ==="
           ls -lh artifacts
 

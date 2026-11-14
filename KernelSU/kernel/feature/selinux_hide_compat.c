@@ -50,7 +50,7 @@ static const struct ksu_feature_handler selinux_hide_handler = {
     .set_handler = selinux_hide_feature_set,
 };
 
-void ksu_selinux_hide_init(void)
+void __init ksu_selinux_hide_init(void)
 {
     if (ksu_register_feature_handler(&selinux_hide_handler))
         pr_err("selinux_hide(4.14): failed to register feature handler\n");

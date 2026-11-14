@@ -7,7 +7,15 @@ cd "$ROOT"
 
 export ARCH=arm64
 export SUBARCH=arm64
-export PATH="$ROOT/toolchain/gcc/linux-x86/aarch64/aarch64-linux-android-4.9/bin:$ROOT/toolchain/clang/host/linux-x86/clang-r383902/bin:$PATH"
+# Use a POSIX-only PATH for the kernel build.  On WSL the inherited PATH
+# contains Windows directories such as "Program Files (x86)"; Samsung's
+# Makefile does `$(shell echo $(PATH))` unquoted, which makes /bin/sh die with
+# `Syntax error: "(" unexpected`.  Keep ccache reachable if it was found first.
+CCACHE_BIN="$(command -v ccache 2>/dev/null || true)"
+export PATH="$ROOT/toolchain/gcc/linux-x86/aarch64/aarch64-linux-android-4.9/bin:$ROOT/toolchain/clang/host/linux-x86/clang-r383902/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+if [ -n "$CCACHE_BIN" ]; then
+    export PATH="$(dirname "$CCACHE_BIN"):$PATH"
+fi
 export CROSS_COMPILE="aarch64-linux-androidkernel-"
 export CLANG_TRIPLE="aarch64-linux-gnu-"
 unset CC LD AR NM STRIP OBJCOPY OBJDUMP READELF HOSTCC HOSTCXX || true
@@ -88,7 +96,7 @@ fi
 # HEAD"; it comes from scripts/setlocalversion. Say so instead of shipping a
 # mystery suffix.
 if ! git -C "$ROOT" diff-index --quiet HEAD -- 2>/dev/null; then
-    echo "=== WARNING: working tree differs from HEAD; the kernel release will carry a '+' suffix"
+    echo "=== note: working tree differs from HEAD; the kernel release will carry a '+' suffix"
 fi
 
 echo "=== [$DEFCONFIG] SukiSU: $(git -C KernelSU rev-parse --short=12 HEAD 2>/dev/null || echo '?')"
