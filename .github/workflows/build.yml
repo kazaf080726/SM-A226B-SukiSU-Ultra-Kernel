@@ -1,0 +1,92 @@
+name: Build SM-A226B kernel
+
+on:
+  push:
+    branches: [ main ]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
+      - 'NOTICE*'
+      - '.gitignore'
+  tags:
+    - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build kernel + AnyKernel3
+    runs-on: ubuntu-22.04
+    timeout-minutes: 360
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+                      /opt/hostedtoolcache/CodeQL /usr/local/share/boost || true
+          sudo apt-get clean
+          df -h
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential bc bison flex libssl-dev libelf-dev lz4 \
+            device-tree-compiler python3 zip unzip cpio rsync curl git zlib1g-dev
+
+      - name: Cache toolchain
+        id: toolchain-cache
+        uses: actions/cache@v4
+        with:
+          path: toolchain
+          key: toolchain-${{ hashFiles('ci/fetch_toolchain.sh') }}
+
+      - name: Fetch toolchain
+        if: steps.toolchain-cache.outputs.cache-hit != 'true'
+        run: bash ci/fetch_toolchain.sh
+
+      - name: Build kernel
+        run: bash ci/build.sh
+
+      - name: Package AnyKernel3 + PathMask
+        run: |
+          bash ci/package.sh
+          bash pathmask/build.sh
+          bash ci/verify.sh
+
+      - name: Collect artifacts
+        run: |
+          mkdir -p artifacts
+          cp -f out/arch/arm64/boot/Image.gz artifacts/ 2>/dev/null || true
+          cp -f dist/*.zip artifacts/ 2>/dev/null || true
+          cp -f ci/repro-date.txt artifacts/
+          echo "=== artifacts ==="
+          ls -lh artifacts
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: A226B-${{ github.ref_name }}-${{ github.sha }}
+          path: artifacts/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish GitHub release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*.zip
+          generate_release_notes: true
+          draft: false
+          prerelease: false
