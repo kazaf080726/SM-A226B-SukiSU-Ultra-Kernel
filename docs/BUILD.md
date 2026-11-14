@@ -106,7 +106,9 @@ CONFIG_KALLSYMS_ALL=y
 - push 到 `main`（源码/配置变化）→ 自动编译、打包、上传 Actions 产物；
 - push `v*` tag → 额外创建/更新 GitHub Release，挂 AnyKernel3 与 PathMask 包；
 - `workflow_dispatch` → 手动触发一次；
-- 工具链用 `actions/cache` 缓存，第二次构建不再重复下载。
+- 工具链用 `actions/cache` 缓存，第二次构建不再重复下载；
+- 构建末尾强制跑 `ci/verify-features.sh`（65 项：config、符号、12 个 hook、
+  Image 标记、PathMask、AnyKernel3），任何一项缺失即失败，不会上传产物或发 Release。
 
 产物在 Actions run 页面的 Artifacts 里：`Image.gz`、`A226B-...zip`、
 `A226B-...-modules-...zip`、PathMask zip。

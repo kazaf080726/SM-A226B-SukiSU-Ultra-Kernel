@@ -176,6 +176,9 @@ grep -E 'CONFIG_(KSU|NOMOUNT|SECURITY_SELINUX_HOOK_KPM)=' out/.config
 nm out/vmlinux | grep -E 'hook_wrap|snapshot_clean_policy|selinux_hook_kpm_builtin_init'
 strings out/arch/arm64/boot/Image | grep -icE 'kpimg|KernelPatch'   # 0
 
+# 全功能收尾检查（CI 同一脚本，65 项）
+bash ci/verify-features.sh
+
 # 设备端
 dmesg | grep -i selinux_hook
 dmesg | grep -i nomount
