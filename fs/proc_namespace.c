@@ -277,7 +277,7 @@ static bool a226b_hide_mount_line(struct vfsmount *mnt)
 	 * when /metadata, /cache, /efs or /omr disappear.  Keep its view complete;
 	 * only hide these stock mounts from the other detector apps.
 	 */
-	if (uid < 10000 || uid == 10296 || !dev)
+	if (uid < 10000 || uid == 10296 || uid == 10272 || !dev)
 		return false;
 
 	if (!strcmp(dev, "/dev/block/by-name/metadata") ||
