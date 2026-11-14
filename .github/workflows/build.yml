@@ -3,14 +3,14 @@ name: Build SM-A226B kernel
 on:
   push:
     branches: [ main ]
+    tags:
+      - 'v*'
     paths-ignore:
       - '**.md'
       - 'docs/**'
       - 'LICENSE'
       - 'NOTICE*'
       - '.gitignore'
-  tags:
-    - 'v*'
   workflow_dispatch:
 
 permissions:
