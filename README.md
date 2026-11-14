@@ -1,6 +1,8 @@
-# SM-A226B-Kernel
+# SM-A226B-SukiSU-Ultra-Kernel
 
 > Samsung Galaxy A22 5G（SM-A226B / a22x / MediaTek MT6833）Linux 4.14.186 内核源码与卡刷包
+>
+> **内核级 Root：SukiSU-Ultra**（builtin，v4.3.0-r2 / KSU_VERSION 41179）
 >
 > 🌐 中文（默认） | [English](README.en.md)
 
