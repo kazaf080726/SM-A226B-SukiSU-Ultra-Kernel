@@ -948,7 +948,11 @@ static bool is_bdev_avail(struct zram *zram)
 	u64 min_free_blocks;
 	int ret;
 
-	if (!zram->bdev->bd_disk)
+	/* Samsung's LRU writeback path can call zram_add_to_writeback_list()
+	 * before a writeback backing device is configured.  zram->bdev is NULL
+	 * in that case, and the old check dereferenced it through
+	 * zram->bdev->bd_disk (NULL + 0x80) and oopsed the device. */
+	if (!zram || !zram->bdev || !zram->bdev->bd_disk)
 		return false;
 
 	lo = zram->bdev->bd_disk->private_data;
