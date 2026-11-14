@@ -271,7 +271,13 @@ static bool a226b_hide_mount_line(struct vfsmount *mnt)
 	const char *dev = r->mnt_devname;
 	unsigned int uid = __kuid_val(current_uid());
 
-	if (uid < 10000 || !dev)
+	/*
+	 * 春秋/NativeCheck (com.chunqiunativecheck, UID 10296) cross-checks the
+	 * mounted set against the stock Samsung layout and reports a "mount gap"
+	 * when /metadata, /cache, /efs or /omr disappear.  Keep its view complete;
+	 * only hide these stock mounts from the other detector apps.
+	 */
+	if (uid < 10000 || uid == 10296 || !dev)
 		return false;
 
 	if (!strcmp(dev, "/dev/block/by-name/metadata") ||
