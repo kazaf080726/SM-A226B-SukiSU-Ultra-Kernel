@@ -1,0 +1,32 @@
+/out/
+/out-*/
+/dist/
+/toolchain/
+/anykernel/Image
+/anykernel/Image.gz
+/anykernel/Image.kpm.gz
+*.log
+
+# PathMask build outputs
+/pathmask/src/*.ko
+/pathmask/src/*.o
+/pathmask/src/.*.cmd
+/pathmask/src/*.mod
+/pathmask/src/*.mod.c
+/pathmask/src/Module.symvers
+/pathmask/src/modules.order
+/pathmask/ksu-module/*.ko
+
+# kernel build outputs that may land in the source tree
+/include/generated/
+/arch/arm64/include/generated/
+/arch/arm/include/generated/
+/scripts/basic/fixdep
+/scripts/basic/bin2c
+/scripts/unifdef
+/scripts/.*.cmd
+/scripts/basic/.*.cmd
+/.tmp_versions/
+/pathmask/src/.tmp_versions/
+*.rej
+*.orig
