@@ -102,8 +102,13 @@ static void show_type(struct seq_file *m, struct super_block *sb)
 	}
 }
 
+static bool a226b_hide_mount_line(struct vfsmount *mnt);
+
 static int show_vfsmnt(struct seq_file *m, struct vfsmount *mnt)
 {
+	if (a226b_hide_mount_line(mnt))
+		return 0;
+
 	struct proc_mounts *p = m->private;
 	struct mount *r = real_mount(mnt);
 	struct path mnt_path = { .dentry = mnt->mnt_root, .mnt = mnt };
@@ -140,6 +145,9 @@ out:
 
 static int show_mountinfo(struct seq_file *m, struct vfsmount *mnt)
 {
+	if (a226b_hide_mount_line(mnt))
+		return 0;
+
 	struct proc_mounts *p = m->private;
 	struct mount *r = real_mount(mnt);
 	struct super_block *sb = mnt->mnt_sb;
@@ -204,6 +212,9 @@ out:
 
 static int show_vfsstat(struct seq_file *m, struct vfsmount *mnt)
 {
+	if (a226b_hide_mount_line(mnt))
+		return 0;
+
 	struct proc_mounts *p = m->private;
 	struct mount *r = real_mount(mnt);
 	struct path mnt_path = { .dentry = mnt->mnt_root, .mnt = mnt };
@@ -256,26 +267,19 @@ out:
  */
 static bool a226b_hide_mount_line(struct vfsmount *mnt)
 {
-	struct path mnt_path = { .mnt = mnt,
-				 .dentry = real_mount(mnt)->mnt_mountpoint };
-	char buf[256];
-	char *p;
+	struct mount *r = real_mount(mnt);
+	const char *dev = r->mnt_devname;
 	unsigned int uid = __kuid_val(current_uid());
 
-	if (uid < 10000)
+	if (uid < 10000 || !dev)
 		return false;
 
-	p = d_path(&mnt_path, buf, sizeof(buf));
-	if (IS_ERR(p))
-		return false;
-
-	if (!strcmp(p, "/metadata") || !strcmp(p, "/cache") ||
-	    !strcmp(p, "/efs") || !strcmp(p, "/omr") ||
-	    !strcmp(p, "/mnt/vendor/efs"))
-		return true;
-
-	/* /optics/configs/... is the stock carrier-config loop mount. */
-	if (!strncmp(p, "/optics/configs/", 16))
+	if (!strcmp(dev, "/dev/block/by-name/metadata") ||
+	    !strcmp(dev, "/dev/block/by-name/cache") ||
+	    !strcmp(dev, "/dev/block/by-name/sec_efs") ||
+	    !strcmp(dev, "/dev/block/by-name/efs") ||
+	    !strcmp(dev, "/dev/block/by-name/omr") ||
+	    !strcmp(dev, "/dev/block/loop5"))
 		return true;
 
 	return false;
