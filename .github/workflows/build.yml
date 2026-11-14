@@ -64,6 +64,7 @@ jobs:
           bash ci/package.sh
           bash pathmask/build.sh
           bash ci/verify.sh
+          bash ci/verify-features.sh | tee feature-verify.txt
 
       - name: Collect artifacts
         run: |
@@ -71,6 +72,7 @@ jobs:
           cp -f out/arch/arm64/boot/Image.gz artifacts/ 2>/dev/null || true
           cp -f dist/*.zip artifacts/ 2>/dev/null || true
           cp -f ci/repro-date.txt artifacts/
+          cp -f feature-verify.txt artifacts/ 2>/dev/null || true
           echo "=== artifacts ==="
           ls -lh artifacts
 
