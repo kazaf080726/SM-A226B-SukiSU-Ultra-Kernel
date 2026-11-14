@@ -256,32 +256,28 @@ out:
  */
 static bool a226b_hide_mount_line(struct vfsmount *mnt)
 {
-	struct dentry *mp = real_mount(mnt)->mnt_mountpoint;
-	struct dentry *d;
-	const char *name;
+	struct path mnt_path = { .mnt = mnt,
+				 .dentry = real_mount(mnt)->mnt_mountpoint };
+	char buf[256];
+	char *p;
 	unsigned int uid = __kuid_val(current_uid());
-	int depth;
 
 	if (uid < 10000)
 		return false;
 
-	name = mp->d_name.name;
-	if (!strcmp(name, "metadata") || !strcmp(name, "cache") ||
-	    !strcmp(name, "efs") || !strcmp(name, "omr"))
+	p = d_path(&mnt_path, buf, sizeof(buf));
+	if (IS_ERR(p))
+		return false;
+
+	if (!strcmp(p, "/metadata") || !strcmp(p, "/cache") ||
+	    !strcmp(p, "/efs") || !strcmp(p, "/omr") ||
+	    !strcmp(p, "/mnt/vendor/efs"))
 		return true;
 
 	/* /optics/configs/... is the stock carrier-config loop mount. */
-	d = mp;
-	for (depth = 0; depth < 6 && d && d->d_parent != d; depth++) {
-		if (!strcmp(d->d_name.name, "configs")) {
-			struct dentry *p = d->d_parent;
+	if (!strncmp(p, "/optics/configs/", 16))
+		return true;
 
-			if (p && !strcmp(p->d_name.name, "optics"))
-				return true;
-			break;
-		}
-		d = d->d_parent;
-	}
 	return false;
 }
 
