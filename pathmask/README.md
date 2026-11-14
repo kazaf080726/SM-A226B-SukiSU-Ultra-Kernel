@@ -40,8 +40,11 @@ v2.8.3 的 4.14 Non-GKI 移植，保留其 KernelSU 模块外壳（service.sh、
 ## 限制
 
 - 4.14 无 `faccessat2`/`openat2`；这两个 syscall hook 不会注册。
-- `openat` hook 因 `close_fd` 不可用而跳过；open 的隐藏依赖
-  `__inode_permission`，在无 LTO 的 4.14 上可用。
+- `openat` hook 正常注册；`write_op_policy=eacces` 的 O_CREAT 判断已按
+  4.14 的 `SyS_*` 参数布局适配（旧代码把 `regs[0]` 当 pt_regs 解引用，
+  dfd 为 -100 时会访问 0xffffffac 并 panic）。
+- 写类 syscall hook（mkdirat/unlinkat/renameat/renameat2/linkat/symlinkat）
+  在 4.14 上使用 `SyS_*` 入口，参数按真实寄存器读取。
 - 模块 vermagic 必须与内核完全一致，因此 `.ko` 与内核同一次 CI 构建产出，
   不要跨版本混用。
 - PathMask 与 SUSFS/NoMount 都会改 VFS 可见性；同时开启同一路径的隐藏

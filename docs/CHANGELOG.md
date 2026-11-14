@@ -1,5 +1,21 @@
 # 更新记录 / Changelog
 
+## V7 后续修复 — PathMask 4.14 写类 hook
+
+修复 PathMask 4.14 移植里两个会导致内核 panic 的问题：
+
+- `sys_openat_entry` 在 `write_op_policy=eacces` 时把 `regs[0]` 当成
+  `struct pt_regs *` 解引用；4.14 的 `SyS_openat` 参数是真实的
+  `(dfd, filename, flags, mode)`，dfd=-100 时会访问 `0xffffffac` 并 oops。
+  现在 4.14 直接读 `regs[2]` 的 `O_CREAT`。
+- 写类 syscall hook（mkdirat/unlinkat/renameat/renameat2/linkat/symlinkat）
+  仍硬编码 `__arm64_sys_*`，4.14 上注册失败且参数按 5.x pt_regs 读取。
+  现在统一使用 `SyS_*`，并按真实寄存器取路径。
+
+已实机验证：`touch` / `mkdir` 在隐藏目标上返回 `EACCES`，无 panic；
+`rmmod` 正常。
+
+
 本文件记录 V1–V7 每个版本**更新了什么、修复了什么**。Release 页面有对应卡刷包。
 
 ---

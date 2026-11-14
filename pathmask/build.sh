@@ -22,7 +22,7 @@ TC="$ROOT/toolchain"
 
 export ARCH=arm64
 export SUBARCH=arm64
-export PATH="$TC/gcc/linux-x86/aarch64/aarch64-linux-android-4.9/bin:$TC/clang/host/linux-x86/clang-r383902/bin:$PATH"
+export PATH="$TC/gcc/linux-x86/aarch64/aarch64-linux-android-4.9/bin:$TC/clang/host/linux-x86/clang-r383902/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 export CROSS_COMPILE="aarch64-linux-androidkernel-"
 export CLANG_TRIPLE="aarch64-linux-gnu-"
 unset CC LD AR NM STRIP OBJCOPY OBJDUMP READELF HOSTCC HOSTCXX || true

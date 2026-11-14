@@ -969,7 +969,15 @@ static int sys_openat_entry(struct kretprobe_instance *ri, struct pt_regs *regs)
 	 * -ENOENT. Flags live in regs[2] for openat.
 	 */
 	if (active_write_policy == WRITE_OP_EACCES &&
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 0, 0)
+	    /* 4.14: SyS_openat(dfd, filename, flags, mode) gets real
+	     * arguments, so O_CREAT is in regs[2].  Dereferencing
+	     * regs[0] as a pt_regs pointer here faults on dfd
+	     * (0xffffff9c + 0x10 = 0xffffffac) and panics the device. */
+	    (regs->regs[2] & O_CREAT))
+#else
 	    (((struct pt_regs *)regs->regs[0])->regs[2] & O_CREAT))
+#endif
 		d->err = -EACCES;
 
 	if (atomic_cmpxchg(&pm_syscall_seen, 0, 1) == 0)
@@ -987,7 +995,9 @@ static int sys_openat2_entry(struct kretprobe_instance *ri,
 			     struct pt_regs *regs)
 {
 	struct syscall_match_data *d = (struct syscall_match_data *)ri->data;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 0, 0)
 	struct pt_regs *user_regs = (struct pt_regs *)regs->regs[0];
+#endif
 
 	d->matched = false;
 	d->needs_close = false;
@@ -1002,6 +1012,7 @@ static int sys_openat2_entry(struct kretprobe_instance *ri,
 	d->matched = true;
 	d->needs_close = true;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 0, 0)
 	if (active_write_policy == WRITE_OP_EACCES && user_regs) {
 		u64 how_flags = 0;
 
@@ -1011,6 +1022,7 @@ static int sys_openat2_entry(struct kretprobe_instance *ri,
 		    (how_flags & O_CREAT))
 			d->err = -EACCES;
 	}
+#endif
 
 	return 0;
 }
@@ -1250,16 +1262,27 @@ static atomic_t pm_write_seen = ATOMIC_INIT(0);
 
 static bool sys_path_match_user_reg(struct pt_regs *regs, unsigned int regno)
 {
-	struct pt_regs *user_regs = (struct pt_regs *)regs->regs[0];
 	char buf[TARGET_TEXT_LEN];
 	long len;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 0, 0)
+	/* 4.14 SyS_* stubs take real arguments, so regs[0] is dfd, not a
+	 * pt_regs pointer.  The old 5.x code dereferenced it and panicked
+	 * as soon as write-class hooks were enabled. */
+	const char __user *fname;
+
+	if (!should_hide_for_current())
+		return false;
+	fname = (const char __user *)regs->regs[regno];
+#else
+	struct pt_regs *user_regs = (struct pt_regs *)regs->regs[0];
+	const char __user *fname;
 
 	if (!user_regs || !should_hide_for_current())
 		return false;
+	fname = (const char __user *)user_regs->regs[regno];
+#endif
 
-	len = strncpy_from_user(buf,
-				(const char __user *)user_regs->regs[regno],
-				sizeof(buf));
+	len = strncpy_from_user(buf, fname, sizeof(buf));
 	if (len <= 0)
 		return false;
 	buf[sizeof(buf) - 1] = '\0';
@@ -1355,12 +1378,12 @@ static struct pm_write_probe {
 	struct kretprobe rp;
 	bool registered;
 } pm_write_probes[] = {
-	{ .symbol = "__arm64_sys_mkdirat",   .entry = sys_mkdirat_entry },
-	{ .symbol = "__arm64_sys_unlinkat",  .entry = sys_unlinkat_entry },
-	{ .symbol = "__arm64_sys_renameat",  .entry = sys_two_path_entry },
-	{ .symbol = "__arm64_sys_renameat2", .entry = sys_two_path_entry },
-	{ .symbol = "__arm64_sys_linkat",    .entry = sys_two_path_entry },
-	{ .symbol = "__arm64_sys_symlinkat", .entry = sys_symlinkat_entry },
+	{ .symbol = PM_SYS("mkdirat"),   .entry = sys_mkdirat_entry },
+	{ .symbol = PM_SYS("unlinkat"),  .entry = sys_unlinkat_entry },
+	{ .symbol = PM_SYS("renameat"),  .entry = sys_two_path_entry },
+	{ .symbol = PM_SYS("renameat2"), .entry = sys_two_path_entry },
+	{ .symbol = PM_SYS("linkat"),    .entry = sys_two_path_entry },
+	{ .symbol = PM_SYS("symlinkat"), .entry = sys_symlinkat_entry },
 };
 
 static void register_write_hooks(void)
