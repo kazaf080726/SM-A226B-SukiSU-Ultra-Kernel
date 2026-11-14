@@ -1,5 +1,7 @@
 # SM-A226B-SukiSU-Ultra-Kernel
 
+[![Build kernel](https://github.com/kazaf080726/SM-A226B-SukiSU-Ultra-Kernel/actions/workflows/build.yml/badge.svg)](https://github.com/kazaf080726/SM-A226B-SukiSU-Ultra-Kernel/actions/workflows/build.yml)
+
 > Full Linux 4.14.186 kernel source for the Samsung Galaxy A22 5G
 > (SM-A226B / a22x / MediaTek MT6833), with SukiSU-Ultra, SUSFS, NoMount,
 > PathMask and selinux_hook compiled in.

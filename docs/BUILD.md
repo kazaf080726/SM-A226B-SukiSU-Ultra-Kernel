@@ -98,3 +98,15 @@ CONFIG_KALLSYMS_ALL=y
 - **`kvcalloc` / `strncpy_from_user_nofault` 未定义**：4.14 没有，使用
   `ksu_kvcalloc` / `ksu_strncpy_from_user_nofault` 兼容层。
 - **符号链接失效**：在 Windows 上 clone 需开启 symlink 支持，或直接在 WSL/Linux 里构建。
+
+## 7. GitHub Actions
+
+仓库自带 `.github/workflows/build.yml`，与本地同一套 `ci/` 脚本：
+
+- push 到 `main`（源码/配置变化）→ 自动编译、打包、上传 Actions 产物；
+- push `v*` tag → 额外创建/更新 GitHub Release，挂 AnyKernel3 与 PathMask 包；
+- `workflow_dispatch` → 手动触发一次；
+- 工具链用 `actions/cache` 缓存，第二次构建不再重复下载。
+
+产物在 Actions run 页面的 Artifacts 里：`Image.gz`、`A226B-...zip`、
+`A226B-...-modules-...zip`、PathMask zip。
