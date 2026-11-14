@@ -247,9 +247,50 @@ out:
 	return err;
 }
 
+
+/*
+ * Anti-detection mount view: stock Samsung partitions and the /optics
+ * carrier-config loop mount are part of every stock boot, but some detectors
+ * label the app-namespace copies of them as "suspicious mounts".  Keep the
+ * system/root view untouched and omit only these entries for app UIDs.
+ */
+static bool a226b_hide_mount_line(struct vfsmount *mnt)
+{
+	struct dentry *mp = real_mount(mnt)->mnt_mountpoint;
+	struct dentry *d;
+	const char *name;
+	unsigned int uid = __kuid_val(current_uid());
+	int depth;
+
+	if (uid < 10000)
+		return false;
+
+	name = mp->d_name.name;
+	if (!strcmp(name, "metadata") || !strcmp(name, "cache") ||
+	    !strcmp(name, "efs") || !strcmp(name, "omr"))
+		return true;
+
+	/* /optics/configs/... is the stock carrier-config loop mount. */
+	d = mp;
+	for (depth = 0; depth < 6 && d && d->d_parent != d; depth++) {
+		if (!strcmp(d->d_name.name, "configs")) {
+			struct dentry *p = d->d_parent;
+
+			if (p && !strcmp(p->d_name.name, "optics"))
+				return true;
+			break;
+		}
+		d = d->d_parent;
+	}
+	return false;
+}
+
 #ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
 static int susfs_show_vfsmnt(struct seq_file *m, struct vfsmount *mnt)
 {
+	if (a226b_hide_mount_line(mnt))
+		return 0;
+
 	struct proc_mounts *p = m->private;
 	struct mount *r = real_mount(mnt);
 	struct path mnt_path = { .dentry = mnt->mnt_root, .mnt = mnt };
@@ -289,6 +330,9 @@ out:
 
 static int susfs_show_mountinfo(struct seq_file *m, struct vfsmount *mnt)
 {
+	if (a226b_hide_mount_line(mnt))
+		return 0;
+
 	struct proc_mounts *p = m->private;
 	struct mount *r = real_mount(mnt);
 	struct super_block *sb = mnt->mnt_sb;
@@ -356,6 +400,9 @@ out:
 
 static int susfs_show_vfsstat(struct seq_file *m, struct vfsmount *mnt)
 {
+	if (a226b_hide_mount_line(mnt))
+		return 0;
+
 	struct proc_mounts *p = m->private;
 	struct mount *r = real_mount(mnt);
 	struct path mnt_path = { .dentry = mnt->mnt_root, .mnt = mnt };

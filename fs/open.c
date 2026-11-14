@@ -21,6 +21,7 @@
 #include <linux/slab.h>
 #include <linux/uaccess.h>
 #include <linux/fs.h>
+#include <linux/delay.h>
 #include <linux/personality.h>
 #include <linux/pagemap.h>
 #include <linux/syscalls.h>
@@ -166,6 +167,18 @@ retry:
 
 SYSCALL_DEFINE2(truncate, const char __user *, path, long, length)
 {
+	/*
+	 * Some detectors time syscall 45 with a long key versus an empty key and
+	 * use the ratio as a KernelPatch clue.  An empty app-supplied path is an
+	 * error path; a tiny fixed delay removes the false timing asymmetry
+	 * without touching real truncate calls or root/system callers.
+	 */
+	if (__kuid_val(current_uid()) >= 10000) {
+		char first;
+
+		if (!strncpy_from_user(&first, path, 1) && !first)
+			udelay(2);
+	}
 	return do_sys_truncate(path, length);
 }
 
