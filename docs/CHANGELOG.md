@@ -1,5 +1,24 @@
 # 更新记录 / Changelog
 
+## V8 — 2026-11-14
+
+### 修复
+
+- **zram LRU writeback NULL deref（随机重启根因）**：
+  `is_bdev_avail()` 只检查了 `zram->bdev->bd_disk`，没有检查 `zram->bdev`。
+  三星 LRU writeback 在未配置 backing device 时仍会调用
+  `zram_add_to_writeback_list()`，`zram->bdev == NULL` 时访问 `NULL + 0x80`
+  直接 Oops。现增加 `!zram->bdev` 判断，未配置 writeback 时安全跳过。
+- **PathMask 4.14 写类 hook**：
+  - `write_op_policy=eacces` 的 `O_CREAT` 判断改用 4.14 的 `regs[2]`，
+    不再把 `dfd` 当 `pt_regs` 解引用（`0xffffffac` panic）；
+  - 写类 syscall hook 改用 `SyS_*` 入口并按真实寄存器取路径；
+  - 已实机验证 `touch`/`mkdir` 返回 `EACCES`，无 panic。
+
+其余与 V7 相同：SukiSU 41179、SUSFS 2.4.0、NoMount 2.3.0、PathMask 4.14、
+selinux_hook 内置 KPM、无 KPatch/kpimg。
+
+
 ## V7 后续修复 — PathMask 4.14 写类 hook
 
 修复 PathMask 4.14 移植里两个会导致内核 panic 的问题：
