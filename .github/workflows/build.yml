@@ -86,23 +86,47 @@ jobs:
           bash ci/verify.sh
           bash ci/verify-features.sh | tee feature-verify.txt
 
-      - name: Collect artifacts
-        run: |
-          mkdir -p artifacts
-          cp -f out/arch/arm64/boot/Image.gz artifacts/ 2>/dev/null || true
-          cp -f dist/*.zip artifacts/ 2>/dev/null || true
-          cp -f ci/repro-date.txt artifacts/
-          cp -f feature-verify.txt artifacts/ 2>/dev/null || true
-          cp -f ccache-stats.txt artifacts/ 2>/dev/null || true
-          cp -f build.log artifacts/ 2>/dev/null || true
-          echo "=== artifacts ==="
-          ls -lh artifacts
-
-      - name: Upload artifacts
+      - name: Upload kernel image
         uses: actions/upload-artifact@v4
         with:
-          name: A226B-${{ github.ref_name }}-${{ github.sha }}
-          path: artifacts/
+          name: A226B-Image-${{ github.run_number }}
+          path: out/arch/arm64/boot/Image.gz
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload AnyKernel3 package
+        uses: actions/upload-artifact@v4
+        with:
+          name: A226B-AnyKernel3-${{ github.run_number }}
+          path: dist/A226B-SukiSU-SUSFS240-NoMount-2*.zip
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload kernel modules
+        uses: actions/upload-artifact@v4
+        with:
+          name: A226B-Modules-${{ github.run_number }}
+          path: dist/A226B-SukiSU-SUSFS240-NoMount-modules-*.zip
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Upload PathMask package
+        uses: actions/upload-artifact@v4
+        with:
+          name: A226B-PathMask-${{ github.run_number }}
+          path: dist/A226B-PathMask-*.zip
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload verification logs
+        uses: actions/upload-artifact@v4
+        with:
+          name: A226B-verify-logs-${{ github.run_number }}
+          path: |
+            build.log
+            feature-verify.txt
+            ccache-stats.txt
+            ci/repro-date.txt
           if-no-files-found: error
           retention-days: 30
 
@@ -110,7 +134,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: artifacts/*.zip
+          files: dist/*.zip
           generate_release_notes: true
           draft: false
           prerelease: false

@@ -125,5 +125,10 @@ GitHub Actions 已默认开启，并用 `actions/cache` 缓存 `.ccache`（单�
 - 构建日志由 `ci/verify-log.sh` 扫描，出现任何 `warning:` / `error:` /
   `Syntax error` 都会让 CI 失败，保证每条构建日志都是干净的。
 
-产物在 Actions run 页面的 Artifacts 里：`Image.gz`、`A226B-...zip`、
-`A226B-...-modules-...zip`、PathMask zip。
+产物在 Actions run 页面的 Artifacts 里，已按类型分开：
+
+- `A226B-Image-<run>`：`Image.gz`
+- `A226B-AnyKernel3-<run>`：内核卡刷包
+- `A226B-Modules-<run>`：内核模块包（如有）
+- `A226B-PathMask-<run>`：PathMask 模块包
+- `A226B-verify-logs-<run>`：`build.log`、`feature-verify.txt`、`ccache-stats.txt`
