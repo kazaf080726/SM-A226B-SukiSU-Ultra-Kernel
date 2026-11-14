@@ -1,4 +1,4 @@
-# A226B-BakaSU-SUSFS-NoMount
+# SM-A226B-Kernel
 
 > Full Linux 4.14.186 kernel source for the Samsung Galaxy A22 5G
 > (SM-A226B / a22x / MediaTek MT6833), with SukiSU-Ultra, SUSFS, NoMount,

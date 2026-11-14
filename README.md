@@ -1,4 +1,4 @@
-# A226B-BakaSU-SUSFS-NoMount
+# SM-A226B-Kernel
 
 > Samsung Galaxy A22 5G（SM-A226B / a22x / MediaTek MT6833）Linux 4.14.186 内核源码与卡刷包
 >
