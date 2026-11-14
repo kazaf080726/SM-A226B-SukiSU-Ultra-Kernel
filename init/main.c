@@ -388,6 +388,15 @@ static inline void smp_prepare_cpus(unsigned int maxcpus) { }
  */
 static void __init setup_command_line(char *command_line)
 {
+	/*
+	 * This port's bootloader does not export androidboot.vbmeta.digest, so
+	 * Android never sets ro.boot.vbmeta.digest even though TEE attestation
+	 * reports a verified boot hash.  Feed init the attested hash so the
+	 * software property and the attestation agree.
+	 */
+	strlcat(boot_command_line,
+		" androidboot.vbmeta.digest=d259db70d8e08546c60baedc7e8f8659aae5efd309175e1e90fbc89d243fa012",
+		COMMAND_LINE_SIZE);
 	saved_command_line =
 		memblock_virt_alloc(strlen(boot_command_line) + 1, 0);
 	initcall_command_line =
