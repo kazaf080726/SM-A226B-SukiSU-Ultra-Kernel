@@ -25,6 +25,10 @@ jobs:
     name: Build kernel + AnyKernel3
     runs-on: ubuntu-22.04
     timeout-minutes: 360
+    env:
+      USE_CCACHE: "1"
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_MAXSIZE: 1500M
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -42,7 +46,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            build-essential bc bison flex libssl-dev libelf-dev lz4 \
+            build-essential bc bison flex libssl-dev libelf-dev lz4 ccache \
             device-tree-compiler python3 zip unzip cpio rsync curl git zlib1g-dev
 
       - name: Cache toolchain
@@ -56,8 +60,19 @@ jobs:
         if: steps.toolchain-cache.outputs.cache-hit != 'true'
         run: bash ci/fetch_toolchain.sh
 
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: .ccache
+          key: ccache-${{ hashFiles('ci/fetch_toolchain.sh') }}-${{ github.sha }}
+          restore-keys: |
+            ccache-${{ hashFiles('ci/fetch_toolchain.sh') }}-
+
       - name: Build kernel
         run: bash ci/build.sh
+
+      - name: ccache stats
+        run: ccache -s | tee ccache-stats.txt
 
       - name: Package AnyKernel3 + PathMask
         run: |
@@ -73,6 +88,7 @@ jobs:
           cp -f dist/*.zip artifacts/ 2>/dev/null || true
           cp -f ci/repro-date.txt artifacts/
           cp -f feature-verify.txt artifacts/ 2>/dev/null || true
+          cp -f ccache-stats.txt artifacts/ 2>/dev/null || true
           echo "=== artifacts ==="
           ls -lh artifacts
 

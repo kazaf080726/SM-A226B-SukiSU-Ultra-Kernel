@@ -12,6 +12,26 @@ export CROSS_COMPILE="aarch64-linux-androidkernel-"
 export CLANG_TRIPLE="aarch64-linux-gnu-"
 unset CC LD AR NM STRIP OBJCOPY OBJDUMP READELF HOSTCC HOSTCXX || true
 
+# --- optional ccache wrapper -------------------------------------------------
+# USE_CCACHE=1 wraps the target compiler with ccache. The cache is content
+# addressed, so only translation units whose preprocessed input is unchanged
+# are reused; this never serves a stale object for changed source.
+CC_BIN="$ROOT/toolchain/clang/host/linux-x86/clang-r383902/bin/clang"
+CC_CMD="$CC_BIN"
+if [ "${USE_CCACHE:-0}" = "1" ]; then
+    if command -v ccache >/dev/null 2>&1; then
+        export CCACHE_DIR="${CCACHE_DIR:-$ROOT/.ccache}"
+        export CCACHE_NOHASHDIR=true
+        export CCACHE_COMPILERCHECK=content
+        export CCACHE_MAXSIZE="${CCACHE_MAXSIZE:-1500M}"
+        ccache --max-size="$CCACHE_MAXSIZE" >/dev/null 2>&1 || true
+        CC_CMD="ccache $CC_BIN"
+        echo "=== ccache enabled: dir=$CCACHE_DIR max=$CCACHE_MAXSIZE"
+    else
+        echo "=== USE_CCACHE=1 but ccache not found; building without ccache"
+    fi
+fi
+
 JOBS="${JOBS:-$(nproc)}"
 OUT="${OUT:-$ROOT/out}"
 DEFCONFIG="${DEFCONFIG:-a22x_defconfig}"
@@ -79,8 +99,8 @@ echo "=== [$DEFCONFIG] NoMount: $(git -C NoMount rev-parse --short=12 HEAD 2>/de
 # between a local and a CI build: 39 bytes across the vmlinux and vDSO notes out
 # of 29,894,672. The vDSO side is handled in arch/arm64/kernel/vdso/Makefile;
 # this clears it for the vmlinux and module links.
-make -C "$ROOT" O="$OUT" ARCH=arm64 "$DEFCONFIG"
+make -C "$ROOT" O="$OUT" ARCH=arm64 CC="$CC_CMD" "$DEFCONFIG"
 make -C "$ROOT" O="$OUT" ARCH=arm64 -j"$JOBS" \
-    KCFLAGS=-w CONFIG_SECTION_MISMATCH_WARN_ONLY=y LDFLAGS_BUILD_ID=
+    CC="$CC_CMD" KCFLAGS=-w CONFIG_SECTION_MISMATCH_WARN_ONLY=y LDFLAGS_BUILD_ID=
 
 ls -lh "$OUT/arch/arm64/boot/Image" "$OUT/arch/arm64/boot/Image.gz"

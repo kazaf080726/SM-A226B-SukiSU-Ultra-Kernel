@@ -155,6 +155,13 @@ bash ci/package.sh    # 生成 dist/A226B-...zip（AnyKernel3）
 bash pathmask/build.sh
 ```
 
+可选：用 ccache 加速重复构建（只复用输入完全相同的编译单元）：
+
+```bash
+export USE_CCACHE=1
+bash ci/build.sh
+```
+
 ---
 
 ## 六、刷写

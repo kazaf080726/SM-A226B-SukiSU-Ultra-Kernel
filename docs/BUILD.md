@@ -99,7 +99,20 @@ CONFIG_KALLSYMS_ALL=y
   `ksu_kvcalloc` / `ksu_strncpy_from_user_nofault` 兼容层。
 - **符号链接失效**：在 Windows 上 clone 需开启 symlink 支持，或直接在 WSL/Linux 里构建。
 
-## 7. GitHub Actions
+## 7. ccache（可选）
+
+`ci/build.sh` 支持 `USE_CCACHE=1`，用 ccache 包住 clang：
+
+```bash
+export USE_CCACHE=1
+export CCACHE_DIR="$PWD/.ccache"   # 默认就是仓库下 .ccache
+bash ci/build.sh
+```
+
+ccache 按预处理内容寻址，只复用输入完全相同的编译单元；源码改动会正常失效。
+GitHub Actions 已默认开启，并用 `actions/cache` 缓存 `.ccache`（单次上限 1.5GB）。
+
+## 8. GitHub Actions
 
 仓库自带 `.github/workflows/build.yml`，与本地同一套 `ci/` 脚本：
 

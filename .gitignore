@@ -2,6 +2,7 @@
 /out-*/
 /dist/
 /toolchain/
+/.ccache/
 /anykernel/Image
 /anykernel/Image.gz
 /anykernel/Image.kpm.gz
