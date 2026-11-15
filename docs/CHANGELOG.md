@@ -1,5 +1,20 @@
 # 更新记录 / Changelog
 
+## V13 — 2026-11-15
+
+**主题：跟随上游重编（内核源码无改动）**
+
+- SukiSU 版本号随上游 `main` 前进（3994 → 3998 提交），`KSU_VERSION` 41179 → **41183**，
+  与设备管理器 versionCode 41183 精确配对；
+- 内核源码与 V12 完全相同（同一提交 `9877efbd4`），功能集合无变化；
+- 修复 `ci/package.sh` 把 `KSU_VERSION` 硬编码为 41179 的问题：改由 `ci/build.sh`
+  从编译日志提取真实值写入 `$OUT/ksu-version.txt`，打包时读取；
+- 新增 `docs/ARCHITECTURE-V12.md`（全量 diff 与函数级审计）与 `docs/REPO-MASTER.md`（仓库总览）；
+- 修正 README / FEATURES / patches 中过期的版本号与"未移植"描述。
+
+实机：已刷入并正常开机；`ksud debug version` = 41183，SUSFS 10 项 feature 全开。
+
+
 ## V8 — 2026-11-14
 
 ### 修复

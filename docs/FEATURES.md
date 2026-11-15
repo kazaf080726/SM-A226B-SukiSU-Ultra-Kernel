@@ -9,7 +9,7 @@ Layer 1  SUSFS v2.4.0（Non-GKI 4.14 移植）        fs/susfs.c + 18 个内核�
 Layer 2  SukiSU-Ultra builtin 41179              KernelSU/ -> drivers/kernelsu
 Layer 3  NoMount v2.3.0（VFS 重定向）             NoMount/ -> fs/nomount
 Layer 4  PathMask 4.14（LKM）                     pathmask/
-Layer 5  selinux_hook 1.1.6.1（源码内置）          security/selinux/selinux_hook_kpm/
+Layer 5  selinux_hook 1.1.7（源码内置）          security/selinux/selinux_hook_kpm/
 Layer 6  原生反检测层                              selinux_query_filter.c + ss/status.c
 ```
 
@@ -42,7 +42,7 @@ Layer 6  原生反检测层                              selinux_query_filter.c 
 - `procguard.ko`：进程/UID 保护；
 - 与内核同一次构建，vermagic 匹配；KSU 模块 WebUI 配置。
 
-## 5. selinux_hook 1.1.6.1（内置）
+## 5. selinux_hook 1.1.7（内置）
 
 - 源码：`security/selinux/selinux_hook_kpm/`
   （`selinux_hook.c` 4521 行 + `kpm_hooks.c` 注册表 + 自包含头文件）；

@@ -108,7 +108,16 @@ echo "=== [$DEFCONFIG] NoMount: $(git -C NoMount rev-parse --short=12 HEAD 2>/de
 # of 29,894,672. The vDSO side is handled in arch/arm64/kernel/vdso/Makefile;
 # this clears it for the vmlinux and module links.
 make -C "$ROOT" O="$OUT" ARCH=arm64 CC="$CC_CMD" "$DEFCONFIG"
+# Keep the build log: it carries the SukiSU version the Makefile computed at
+# configure time (`-- SukiSU-Ultra version: NNNNN`), which package.sh embeds in
+# build-info.txt.  pipefail is already enabled, so a failing make still fails.
 make -C "$ROOT" O="$OUT" ARCH=arm64 -j"$JOBS" \
-    CC="$CC_CMD" KCFLAGS=-w CONFIG_SECTION_MISMATCH_WARN_ONLY=y LDFLAGS_BUILD_ID=
+    CC="$CC_CMD" KCFLAGS=-w CONFIG_SECTION_MISMATCH_WARN_ONLY=y LDFLAGS_BUILD_ID= \
+    2>&1 | tee "$OUT/build.log"
+
+KSU_VER="$(sed -n 's/.*SukiSU-Ultra version: \([0-9][0-9]*\).*/\1/p' "$OUT/build.log" | head -n1)"
+if [ -n "$KSU_VER" ]; then
+    printf '%s\n' "$KSU_VER" > "$OUT/ksu-version.txt"
+fi
 
 ls -lh "$OUT/arch/arm64/boot/Image" "$OUT/arch/arm64/boot/Image.gz"

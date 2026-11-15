@@ -4,7 +4,7 @@
 
 > Samsung Galaxy A22 5G（SM-A226B / a22x / MediaTek MT6833）Linux 4.14.186 内核源码与卡刷包
 >
-> **内核级 Root：SukiSU-Ultra**（builtin，v4.3.0-r2 / KSU_VERSION 41179）
+> **内核级 Root：SukiSU-Ultra**（builtin，v4.3.0-r2 / KSU_VERSION 41183，随上游 main 漂移）
 >
 > 🌐 中文（默认） | [English](README.en.md)
 
@@ -16,16 +16,16 @@
 
 ---
 
-## 一、当前版本（V7）
+## 一、当前版本（V13）
 
 | 组件 | 版本 / 说明 |
 |---|---|
 | 内核 | Linux 4.14.186，Samsung `SM-A226B_13_Opensource` |
-| Root | SukiSU-Ultra `builtin`，v4.3.0-r2，KSU_VERSION **41179** |
+| Root | SukiSU-Ultra `builtin`，v4.3.0-r2，KSU_VERSION **41183**（编译期取上游 main 提交数） |
 | SUSFS | **v2.4.0**（Non-GKI 4.14 移植） |
 | NoMount | **v2.3.0**（内核驱动内置） |
 | PathMask | 4.14 移植（`pathmask.ko` + `procguard.ko`，KSU 模块） |
-| SELinux 隐藏 | selinux_hook **1.1.6.1 全量源码编入**（4521 行 / 124 函数，12 个静态 hook 接线） |
+| SELinux 隐藏 | selinux_hook **1.1.7 全量源码编入**（4.7k 行目录，12 个静态 hook 接线） |
 | 反检测 | clean-policy 引擎、status 伪造、`/access` 真实形状应答、v4 原生过滤层 |
 | KernelPatch / kpimg | **无**（0 痕迹，不需要 KPatch-Next 模块） |
 
@@ -44,7 +44,13 @@
 | **V4** | status 伪造（sequence=4 / policyload=1）+ 常开原生 SELinux 过滤层 | 为 V5 的 clean-policy 引擎铺路 |
 | **V5** | selinux_hook 1.1.6.1 **全量源码编入**，12 个 hook 接线，clean-policy 快照/重定向 | `SELinux Policy` 消失；`FolkPatch/APatch` 间歇回归 |
 | **V6** | 修 `/sys/fs/selinux/access` 固定应答指纹（KPM + 原生过滤两处） | **两项误报全部消失，全功能生效** |
-| **V7** | NoMount 2.2.0 → **2.3.0**（inode 规则、预打开缓存、OOB/UAF 修复、安全加固、启动提速） | 当前推荐版本 |
+| **V7** | NoMount 2.2.0 → **2.3.0**（inode 规则、预打开缓存、OOB/UAF 修复、安全加固、启动提速） | 稳定基线 |
+| **V8** | zram `is_bdev_avail()` NULL bdev 修复；PathMask 4.14 写钩子 `SyS_*` 适配 | 修复随机重启 |
+| **V9** | 对 app UID 隐藏原厂 metadata/cache/efs/omr 与 loop5 挂载 | 小骨 MountInfo/Loop 通过 |
+| **V10** | 春秋（UID 10296）保留完整挂载视图，修“挂载间隙” | NativeCheck 通过 |
+| **V11** | `init/main.c` 注入 `androidboot.vbmeta.digest` | Bootloader/TEE 危险项消失 |
+| **V12** | Hunter（UID 10272）排除在挂载隐藏之外 | Hunter 红屏消除 |
+| **V13** | 仅重编：KSU 版本随上游 main 前进到 **41183**，源码与 V12 相同；新增全仓库审计与总览文档 | 当前推荐版本 |
 
 每个 Release 都附对应卡刷包与更新说明。
 
@@ -55,8 +61,8 @@
 ## 三、功能清单
 
 ### 3.1 SukiSU-Ultra（`CONFIG_KSU`）
-- `builtin` 分支，管理器版本 v4.3.0-r2 / 41179，APK 使用
-  `SukiSU_v4.3.0-r2_41179-arm64-v8a-release.apk`；
+- `builtin` 分支，管理器版本 v4.3.0-r2（versionCode 41183），APK 使用
+  `SukiSU_v4.3.0-r2_41183-arm64-v8a-release.apk`；
 - 源码位于 `KernelSU/`，`drivers/kernelsu -> ../KernelSU/kernel`；
 - 4.14 兼容层：`static_call.h` 版本守卫、`ksu_kvcalloc`、
   `strncpy_from_user_nofault` 别名、KPM 扩展在 <5.10 编出等。
@@ -110,7 +116,7 @@
 ├── security/selinux/ss/status.c        # status 伪造
 ├── anykernel/                          # AnyKernel3 模板
 ├── ci/                                 # 构建/打包脚本
-├── docs/                               # 构建、功能、变更记录
+├── docs/                               # 构建、功能、变更、架构审计、仓库总览
 └── out/                                # 构建输出（不入库）
 ```
 
@@ -170,7 +176,7 @@ bash ci/build.sh
 
 1. **先备份 boot**：TWRP → Backup → Boot；
 2. TWRP → Install → 刷 Release 里的 `A226B-...zip`；
-3. 重启，安装对应版本的 SukiSU 管理器 APK（41179）；
+3. 重启，安装对应版本的 SukiSU 管理器 APK（versionCode 41183）；
 4. 需要路径隐藏时，再刷 `A226B-PathMask-4.14.zip` 并在 KSU 管理器里配置。
 
 > 机型无 `init_boot`；不要刷到 `boot` 以外的分区。
