@@ -70,7 +70,7 @@ echo "=== 2. SukiSU-Ultra ==="
 for s in kernelsu_init ksu_allow ksu_extension_susfs_ops; do
     if has_sym "$s"; then ok "symbol $s"; else bad "missing symbol $s"; fi
 done
-if has_vstr 'v4.3.0-r2'; then ok "KSU version string v4.3.0-r2"; else bad "KSU version string missing"; fi
+if has_vstr 'v3.0.0'; then ok "KSU version string v3.0.0"; else bad "KSU version string missing"; fi
 
 echo
 echo "=== 3. SUSFS v2.4.0 ==="

@@ -1,5 +1,21 @@
 # 更新记录 / Changelog
 
+## V14 — 2026-11-18
+
+**主题：跟随 SukiSU 更名 SukiSU-Nova（完全适配）**
+
+- 上游 `SukiSU-Ultra` 更名 **`SukiSU-Nova`**，内置源码同步到 `builtin@4bec532d`；
+- 包名：`com.sukisu.ultra` → **`com.sukisu.nova`**（内核 `KSU_PACKAGE_NAME` 默认值），
+  旧 Ultra 管理器不再被识别；
+- 版本公式：`40000+N-2815` → **`30000+N-4001`**；上游 main 当前 4008 提交 →
+  `KSU_VERSION` **30007**，完整版本串 `v3.0.0-<sha>@main`（管理器 v3.0.0 的最低要求即 `v3.0.0`）；
+- uapi 版本仍为 **6**，与管理器 v3.0.0 一致，无需移植新接口；
+- `main` 分支新增的 701 行 uapi（manager / sulog / selinux 新命令）属 GKI 线，
+  非 GKI 4.14 走 `builtin`，本次不引入；
+- 保留全部 5 处 4.14 兼容改动（KPM 编译排除、`static_call.h` 守卫、`ksu_kvcalloc`、
+  `strncpy_from_user_nofault` 别名、`selinux_hide_compat.c`）；
+- `ci/verify-features.sh` 的版本串断言由 `v4.3.0-r2` 更新为 `v3.0.0`。
+
 ## V13 — 2026-11-15
 
 **主题：跟随上游重编（内核源码无改动）**

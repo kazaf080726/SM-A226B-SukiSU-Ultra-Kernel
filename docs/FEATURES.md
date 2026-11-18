@@ -6,7 +6,7 @@
 ```
 Layer 0  三星原厂 4.14.186
 Layer 1  SUSFS v2.4.0（Non-GKI 4.14 移植）        fs/susfs.c + 18 个内核文件
-Layer 2  SukiSU-Ultra builtin 41179              KernelSU/ -> drivers/kernelsu
+Layer 2  SukiSU-Nova builtin 30007              KernelSU/ -> drivers/kernelsu
 Layer 3  NoMount v2.3.0（VFS 重定向）             NoMount/ -> fs/nomount
 Layer 4  PathMask 4.14（LKM）                     pathmask/
 Layer 5  selinux_hook 1.1.7（源码内置）          security/selinux/selinux_hook_kpm/
@@ -22,10 +22,10 @@ Layer 6  原生反检测层                              selinux_query_filter.c 
   HIDE_KSU_SUSFS_SYMBOLS、PRIORITY_UID_FILTER、ENABLE_LOG；
 - 用户态接口：`CMD_SUSFS_*` ioctl（`susfs_def.h`），由 susfs4ksu 模块下发。
 
-## 2. SukiSU-Ultra（`CONFIG_KSU`）
+## 2. SukiSU-Nova（`CONFIG_KSU`，原 SukiSU-Ultra）
 
 - `KernelSU/` 源码，`drivers/kernelsu -> ../KernelSU/kernel`；
-- 版本：v4.3.0-r2 / KSU_VERSION 41179；
+- 版本：v3.0.0 / KSU_VERSION 30007（`30000+main-4001`）；
 - 4.14 兼容：`static_call.h` 守卫、`ksu_kvcalloc`、`strncpy_from_user_nofault`、
   KPM 扩展在 <5.10 编出、`selinux_hide_compat.c`。
 

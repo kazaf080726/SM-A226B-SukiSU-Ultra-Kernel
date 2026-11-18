@@ -4,7 +4,7 @@
 
 > Samsung Galaxy A22 5G（SM-A226B / a22x / MediaTek MT6833）Linux 4.14.186 内核源码与卡刷包
 >
-> **内核级 Root：SukiSU-Ultra**（builtin，v4.3.0-r2 / KSU_VERSION 41183，随上游 main 漂移）
+> **内核级 Root：SukiSU-Nova**（原 SukiSU-Ultra；builtin，v3.0.0 / KSU_VERSION 30007，随上游 main 漂移）
 >
 > 🌐 中文（默认） | [English](README.en.md)
 
@@ -16,12 +16,12 @@
 
 ---
 
-## 一、当前版本（V13）
+## 一、当前版本（V14）
 
 | 组件 | 版本 / 说明 |
 |---|---|
 | 内核 | Linux 4.14.186，Samsung `SM-A226B_13_Opensource` |
-| Root | SukiSU-Ultra `builtin`，v4.3.0-r2，KSU_VERSION **41183**（编译期取上游 main 提交数） |
+| Root | SukiSU-Nova `builtin`（原 SukiSU-Ultra），v3.0.0，KSU_VERSION **30007**（编译期取上游 main 提交数） |
 | SUSFS | **v2.4.0**（Non-GKI 4.14 移植） |
 | NoMount | **v2.3.0**（内核驱动内置） |
 | PathMask | 4.14 移植（`pathmask.ko` + `procguard.ko`，KSU 模块） |
@@ -50,7 +50,8 @@
 | **V10** | 春秋（UID 10296）保留完整挂载视图，修“挂载间隙” | NativeCheck 通过 |
 | **V11** | `init/main.c` 注入 `androidboot.vbmeta.digest` | Bootloader/TEE 危险项消失 |
 | **V12** | Hunter（UID 10272）排除在挂载隐藏之外 | Hunter 红屏消除 |
-| **V13** | 仅重编：KSU 版本随上游 main 前进到 **41183**，源码与 V12 相同；新增全仓库审计与总览文档 | 当前推荐版本 |
+| **V13** | 仅重编：KSU 版本随上游 main 前进到 **41183**，源码与 V12 相同；新增全仓库审计与总览文档 | 上一版 |
+| **V14** | SukiSU 更名 **SukiSU-Nova**：内置源码升级到 `builtin@4bec532d`，包名改 `com.sukisu.nova`，版本公式改为 `30000+main-4001`（当前 **30007**），完整版本串 `v3.0.0`；5 处 4.14 兼容改动全部保留 | 当前推荐版本 |
 
 每个 Release 都附对应卡刷包与更新说明。
 
@@ -60,9 +61,9 @@
 
 ## 三、功能清单
 
-### 3.1 SukiSU-Ultra（`CONFIG_KSU`）
-- `builtin` 分支，管理器版本 v4.3.0-r2（versionCode 41183），APK 使用
-  `SukiSU_v4.3.0-r2_41183-arm64-v8a-release.apk`；
+### 3.1 SukiSU-Nova（`CONFIG_KSU`，原 SukiSU-Ultra）
+- `builtin` 分支（SukiSU-Nova），管理器 v3.0.0（versionCode 35000），APK 使用
+  `SukiSU_Nova_v3.0.0_35000-arm64-v8a-release.apk`；包名 `com.sukisu.nova`（旧 Ultra 包不再被识别）；
 - 源码位于 `KernelSU/`，`drivers/kernelsu -> ../KernelSU/kernel`；
 - 4.14 兼容层：`static_call.h` 版本守卫、`ksu_kvcalloc`、
   `strncpy_from_user_nofault` 别名、KPM 扩展在 <5.10 编出等。
@@ -108,7 +109,7 @@
 ```
 .
 ├── arch/arm64/configs/a22x_defconfig   # 默认配置
-├── KernelSU/                           # SukiSU-Ultra 源码（builtin）
+├── KernelSU/                           # SukiSU-Nova 源码（builtin）
 ├── NoMount/                            # NoMount v2.3.0（内核 + 模块）
 ├── pathmask/                           # PathMask 4.14 LKM 与 KSU 模块
 ├── security/selinux/selinux_hook_kpm/  # selinux_hook 内置移植
@@ -176,7 +177,7 @@ bash ci/build.sh
 
 1. **先备份 boot**：TWRP → Backup → Boot；
 2. TWRP → Install → 刷 Release 里的 `A226B-...zip`；
-3. 重启，安装对应版本的 SukiSU 管理器 APK（versionCode 41183）；
+3. 重启，安装 **SukiSU-Nova v3.0.0** 管理器 APK（versionCode 35000，包名 `com.sukisu.nova`）；先卸载旧的 `com.sukisu.ultra`；
 4. 需要路径隐藏时，再刷 `A226B-PathMask-4.14.zip` 并在 KSU 管理器里配置。
 
 > 机型无 `init_boot`；不要刷到 `boot` 以外的分区。

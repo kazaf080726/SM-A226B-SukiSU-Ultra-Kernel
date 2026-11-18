@@ -115,7 +115,7 @@ make -C "$ROOT" O="$OUT" ARCH=arm64 -j"$JOBS" \
     CC="$CC_CMD" KCFLAGS=-w CONFIG_SECTION_MISMATCH_WARN_ONLY=y LDFLAGS_BUILD_ID= \
     2>&1 | tee "$OUT/build.log"
 
-KSU_VER="$(sed -n 's/.*SukiSU-Ultra version: \([0-9][0-9]*\).*/\1/p' "$OUT/build.log" | head -n1)"
+KSU_VER="$(sed -n 's/.* version: \([0-9][0-9]*\) \[.*/\1/p' "$OUT/build.log" | head -n1)"
 if [ -n "$KSU_VER" ]; then
     printf '%s\n' "$KSU_VER" > "$OUT/ksu-version.txt"
 fi

@@ -25,7 +25,7 @@ V8 之后每版一个提交；V1–V6 只能从 `docs/CHANGELOG.md` 追溯，无
 | 组成 | 上游 | 本地改动 |
 |---|---|---|
 | 内核主体 | Samsung `SM-A226B_13_Opensource` 4.14.186 | 47 个文件，0 个删除 |
-| KernelSU | SukiSU-Ultra `builtin` @ `f9aa2fec` | 4 改 + 1 新增，全部是 4.14 兼容 |
+| KernelSU | SukiSU-Nova `builtin` @ `4bec532d`（原 SukiSU-Ultra） | 4 改 + 1 新增，全部是 4.14 兼容 |
 | NoMount | `maxsteeel/nomount` @ `7914458`（v2.3.0） | `kernel/src` 逐字节一致 |
 | SUSFS | NonGKI 4.14 移植补丁（`patches/`） | 10 个 config + 4.14.186 适配 |
 | selinux_hook | Admire 的 KPM 1.1.7 源码 | 编入内核 + KernelPatch API shim |
@@ -34,7 +34,7 @@ V8 之后每版一个提交；V1–V6 只能从 `docs/CHANGELOG.md` 追溯，无
 重新核对上游身份：
 
 ```bash
-git clone --depth 1 --branch builtin https://github.com/SukiSU-Ultra/SukiSU-Ultra /tmp/k
+git clone --depth 1 --branch builtin https://github.com/SukiSU-Nova/SukiSU-Nova /tmp/k
 diff -rq /tmp/k/kernel KernelSU/kernel                 # 期望仅 5 行差异
 
 git clone --depth 50 https://github.com/maxsteeel/nomount /tmp/n
@@ -75,7 +75,7 @@ docs/                               BUILD / FEATURES / CHANGELOG / ARCHITECTURE-
 运行时自检：
 
 ```bash
-su -c 'ksud debug version'          # Kernel Version: 41183
+su -c 'ksud debug version'          # Kernel Version: 30007
 su -c 'ksud susfs features'         # 10 项
 su -c 'ksud feature list'           # su_compat/kernel_umount/adb_root/selinux_hide
 su -c 'lsmod | grep -E "pathmask|procguard"'
@@ -98,7 +98,7 @@ bash ci/verify.sh && bash ci/verify-features.sh && bash ci/verify-log.sh build.l
 - 门禁：镜像 ≤28 MiB、PathMask vermagic、65 项 feature 检查、构建日志零 `warning:`/`error:`。
 - CI：push `main` / `v*` tag 触发；tag 构建会自动发布 Release。
 
-**注意**：`KSU_VERSION = 40000 + 上游 main 提交数 - 2815`，由 `KernelSU/kernel/Makefile` 在编译时联网计算。
+**注意**：`KSU_VERSION = 30000 + 上游 main 提交数 - 4001`（SukiSU-Nova 起），由 `KernelSU/kernel/Makefile` 在编译时联网计算。
 同一份源码在不同日期编译会得到不同版本号；离线构建会回退到本仓库提交数（数值坍缩）。
 这是"内核始终对齐最新管理器"的代价，不是 bug。
 

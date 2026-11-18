@@ -39,7 +39,7 @@ fi
   echo "kernel: 4.14.186 (Samsung SM-A226B source)"
   KSU_VER="$(cat "$OUT/ksu-version.txt" 2>/dev/null || true)"
   [ -n "$KSU_VER" ] || KSU_VER="unknown"
-  echo "sukisu: SukiSU-Ultra builtin (KSU_VERSION $KSU_VER)"
+  echo "sukisu: SukiSU-Nova builtin (KSU_VERSION $KSU_VER)"
   echo "susfs:  $(grep -m1 '^#define SUSFS_VERSION' "$ROOT/include/linux/susfs.h" | cut -d'"' -f2)"
   echo "nomount: v2.3.0 (NOMOUNT_BASE_VERSION $(grep -m1 'NOMOUNT_BASE_VERSION' "$ROOT/NoMount/kernel/src/nomount.h" | cut -d'"' -f2))"
   echo "date:   $BUILD_TS"
