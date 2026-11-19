@@ -113,6 +113,7 @@ make -C "$ROOT" O="$OUT" ARCH=arm64 CC="$CC_CMD" "$DEFCONFIG"
 # build-info.txt.  pipefail is already enabled, so a failing make still fails.
 make -C "$ROOT" O="$OUT" ARCH=arm64 -j"$JOBS" \
     CC="$CC_CMD" KCFLAGS=-w CONFIG_SECTION_MISMATCH_WARN_ONLY=y LDFLAGS_BUILD_ID= \
+    ${KSU_VERSION_OVERRIDE:+KSU_VERSION_OVERRIDE=$KSU_VERSION_OVERRIDE} \
     2>&1 | tee "$OUT/build.log"
 
 KSU_VER="$(sed -n 's/.* version: \([0-9][0-9]*\) \[.*/\1/p' "$OUT/build.log" | head -n1)"

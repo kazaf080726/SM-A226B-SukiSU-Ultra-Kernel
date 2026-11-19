@@ -1,5 +1,22 @@
 # 更新记录 / Changelog
 
+## V15 — 2026-11-19
+
+**主题：SUSFS 4.14 补丁同步上游 + 内核版本号对齐管理器**
+
+- SUSFS 4.14 补丁同步到上游 `NonGKI_Kernel_Build_2nd` 2026-11-18 状态（版本号仍为 v2.4.0，
+  但包含实质修复）：SUS_PATH 改用 `i_state` 标记、`susfs_kvmalloc`、`kernel_read` 签名检测、
+  移除 `susfs_get_data_path` 等；
+- `fs/susfs.c`、`fs/namei.c`、`fs/readdir.c`、`include/linux/susfs{,_def}.h` 换为上游新版；
+  保留本地改动：`susfs_contains()` 辅助函数（`kernel/kallsyms.c` 符号隐藏使用）、
+  `filename_lookup()` 导出（KSU faccessat/stat 使用）、`fs/Makefile` 的 NoMount 行；
+- `KernelSU/kernel/Makefile` 版本公式改为与管理器一致：`30000 + 上游 main 提交数 + 996`
+  （原来是 `- 4001`，导致内核 30007 与管理器 35000+ 永远对不上）；
+- 新增构建期覆盖开关 `KSU_VERSION_OVERRIDE`，本次按当前管理器对齐为 **35040**；
+- 其余插件无更新：NoMount `master` 仍为 `7914458`（v2.3.0），PathMask 为本地实现无上游。
+
+实机待验证；`ksud susfs features` 应仍为 10 项。
+
 ## V14 — 2026-11-18
 
 **主题：跟随 SukiSU 更名 SukiSU-Nova（完全适配）**

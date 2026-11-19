@@ -98,7 +98,8 @@ bash ci/verify.sh && bash ci/verify-features.sh && bash ci/verify-log.sh build.l
 - 门禁：镜像 ≤28 MiB、PathMask vermagic、65 项 feature 检查、构建日志零 `warning:`/`error:`。
 - CI：push `main` / `v*` tag 触发；tag 构建会自动发布 Release。
 
-**注意**：`KSU_VERSION = 30000 + 上游 main 提交数 - 4001`（SukiSU-Nova 起），由 `KernelSU/kernel/Makefile` 在编译时联网计算。
+**注意**：`KSU_VERSION = 30000 + 上游 main 提交数 + 996`（与管理器 versionCode 同一公式；
+可用 `KSU_VERSION_OVERRIDE` 覆盖），由 `KernelSU/kernel/Makefile` 在编译时联网计算。
 同一份源码在不同日期编译会得到不同版本号；离线构建会回退到本仓库提交数（数值坍缩）。
 这是"内核始终对齐最新管理器"的代价，不是 bug。
 

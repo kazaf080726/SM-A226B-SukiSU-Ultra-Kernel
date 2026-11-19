@@ -4,7 +4,7 @@
 
 > Samsung Galaxy A22 5G（SM-A226B / a22x / MediaTek MT6833）Linux 4.14.186 内核源码与卡刷包
 >
-> **内核级 Root：SukiSU-Nova**（原 SukiSU-Ultra；builtin，v3.0.0 / KSU_VERSION 30007，随上游 main 漂移）
+> **内核级 Root：SukiSU-Nova**（原 SukiSU-Ultra；builtin，v3.0.0 / KSU_VERSION 35040，随上游 main 漂移）
 >
 > 🌐 中文（默认） | [English](README.en.md)
 
@@ -16,12 +16,12 @@
 
 ---
 
-## 一、当前版本（V14）
+## 一、当前版本（V15）
 
 | 组件 | 版本 / 说明 |
 |---|---|
 | 内核 | Linux 4.14.186，Samsung `SM-A226B_13_Opensource` |
-| Root | SukiSU-Nova `builtin`（原 SukiSU-Ultra），v3.0.0，KSU_VERSION **30007**（编译期取上游 main 提交数） |
+| Root | SukiSU-Nova `builtin`（原 SukiSU-Ultra），v3.0.0，KSU_VERSION **35040**（编译期取上游 main 提交数） |
 | SUSFS | **v2.4.0**（Non-GKI 4.14 移植） |
 | NoMount | **v2.3.0**（内核驱动内置） |
 | PathMask | 4.14 移植（`pathmask.ko` + `procguard.ko`，KSU 模块） |
@@ -51,7 +51,8 @@
 | **V11** | `init/main.c` 注入 `androidboot.vbmeta.digest` | Bootloader/TEE 危险项消失 |
 | **V12** | Hunter（UID 10272）排除在挂载隐藏之外 | Hunter 红屏消除 |
 | **V13** | 仅重编：KSU 版本随上游 main 前进到 **41183**，源码与 V12 相同；新增全仓库审计与总览文档 | 上一版 |
-| **V14** | SukiSU 更名 **SukiSU-Nova**：内置源码升级到 `builtin@4bec532d`，包名改 `com.sukisu.nova`，版本公式改为 `30000+main-4001`（当前 **30007**），完整版本串 `v3.0.0`；5 处 4.14 兼容改动全部保留 | 当前推荐版本 |
+| **V14** | SukiSU 更名 **SukiSU-Nova**：内置源码升级到 `builtin@4bec532d`，包名改 `com.sukisu.nova`，完整版本串 `v3.0.0`；5 处 4.14 兼容改动全部保留 | 上一版 |
+| **V15** | SUSFS 4.14 补丁同步上游（SUS_PATH `i_state` 等修复）；内核版本公式改为与管理器一致，输出 **35040** | 当前推荐版本 |
 
 每个 Release 都附对应卡刷包与更新说明。
 
