@@ -1,5 +1,20 @@
 # 更新记录 / Changelog
 
+## V16 — 2026-11-21
+
+**主题：NoMount 2.3.1 + 内核版本号对齐管理器 35049**
+
+- NoMount 内核驱动由 v2.3.0 升级到上游 **v2.3.1**（`dcd77d0`）：Kconfig `select KEYS`、
+  export_operations 代理、UID bloom 扩到 16 words、启动与规则建立路径精简；
+  `NoMount/kernel/src` 与上游逐字节一致（本地无改动）；
+- 管理器 versionCode 已到 **35049**（其版本号随发布递增，不再等于 Nova 仓库提交数公式）；
+  内核通过 `KSU_VERSION_OVERRIDE=35049` 对齐，`uapi` 仍为 6；
+- SUSFS：上游 4.14 补丁与 V15 相同（md5 一致），无更新；
+- PathMask：上游 `Andrea-lyz/LKM-PathMask` 最新仍为 v2.8.3，无更新；
+- KernelSU：Nova `builtin` 仍为 `4bec532d`，无代码更新。
+
+验证：`VERIFY_OK`、65/65 feature 检查通过，`build-info` 显示 NoMount v2.3.1 / KSU 35049。
+
 ## V15 — 2026-11-19
 
 **主题：SUSFS 4.14 补丁同步上游 + 内核版本号对齐管理器**

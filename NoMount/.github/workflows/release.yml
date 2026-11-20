@@ -54,7 +54,7 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           run-id: ${{ github.event.workflow_run.id }}
-          pattern: NoMount-*
+          pattern: "*-release-*"
           path: ${{ runner.temp }}/module-artifact
 
       - name: Repack as release ZIP
@@ -64,14 +64,29 @@ jobs:
           COUNT="${{ steps.count.outputs.count }}"
           ZIP_NAME="NoMount-${TAG}-release-${COUNT}.zip"
 
-          SRC=$(find "${{ runner.temp }}/module-artifact" -mindepth 1 -maxdepth 1 -type d | head -n1)
+          SRC=""
+          for d in "${{ runner.temp }}/module-artifact"/*/; do
+            if [ -f "${d}module.prop" ]; then
+              SRC="$d"
+              break
+            fi
+          done
           if [ -z "$SRC" ]; then
-            echo "No module directory found in artifact" >&2
+            echo "ERROR: no directory with module.prop found in artifact" >&2
+            ls -la "${{ runner.temp }}/module-artifact" >&2 || true
             exit 1
           fi
+          echo "Using source: $SRC"
 
           cd "$SRC"
           zip -qr9 "${{ runner.temp }}/$ZIP_NAME" .
+
+          if ! unzip -l "${{ runner.temp }}/$ZIP_NAME" | grep -qE ' module\.prop$'; then
+            echo "ERROR: generated ZIP does not contain module.prop at root" >&2
+            unzip -l "${{ runner.temp }}/$ZIP_NAME" >&2
+            exit 1
+          fi
+
           echo "zip_path=${{ runner.temp }}/$ZIP_NAME" >> "$GITHUB_OUTPUT"
           echo "zip_name=$ZIP_NAME" >> "$GITHUB_OUTPUT"
           ls -lh "${{ runner.temp }}/$ZIP_NAME"
