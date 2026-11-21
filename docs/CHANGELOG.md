@@ -1,5 +1,20 @@
 # 更新记录 / Changelog
 
+## V20 — 2026-11-22
+
+**主题：NoMount 上游新修复 + 管理器 v3.0.0-r1**
+
+- 管理器升级到 **v3.0.0-r1**，但 versionCode 仍是 **35061**（构建号未变），内核侧不需要改版本；
+- NoMount 内核驱动同步到上游 `6849f00`（*kernel: resolve virtual backing paths*）：
+  新增 `nm_unwrap_virtual_backing()`，在解析 backing 路径时解开嵌套的虚拟 inode，
+  避免规则指向另一个 NoMount 虚拟路径时校验失败；只改 `nomount.c`（41 行），
+  `NoMount/` 现与上游逐字节一致；
+- 插件盘点：KernelSU `builtin@4bec532d`、SUSFS 4.14 补丁（md5 未变）、PathMask v2.8.3
+  **均无更新**；
+- 本版包含 V19 的挂载豁免 UID 修复（春秋 10265 / Hunter 10267）。
+
+验证：`VERIFY_OK`、65/65 feature 检查通过，镜像版本串 `v3.0.0-b3b854eb@main`。
+
 ## V19 — 2026-11-21
 
 **主题：修春秋“挂载间隙”——出厂重置后 UID 变了**
