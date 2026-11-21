@@ -272,12 +272,28 @@ static bool a226b_hide_mount_line(struct vfsmount *mnt)
 	unsigned int uid = __kuid_val(current_uid());
 
 	/*
-	 * 春秋/NativeCheck (com.chunqiunativecheck, UID 10296) cross-checks the
-	 * mounted set against the stock Samsung layout and reports a "mount gap"
-	 * when /metadata, /cache, /efs or /omr disappear.  Keep its view complete;
-	 * only hide these stock mounts from the other detector apps.
+	 * 春秋/NativeCheck (com.chunqiunativecheck) and Hunter
+	 * (com.zhenxi.hunter) cross-check the mounted set against the stock
+	 * Samsung layout and report a "mount gap" when /metadata, /cache, /efs or
+	 * /omr disappear.  Keep their view complete; only hide these stock mounts
+	 * from the other detector apps.
+	 *
+	 * The UIDs are Android app ids and therefore change whenever the apps are
+	 * reinstalled or the device is factory reset.  10296/10272 are the values
+	 * observed before the 2026-11-21 reset, 10265/10267 after it; keep both so
+	 * a restored backup still works.
 	 */
-	if (uid < 10000 || uid == 10296 || uid == 10272 || !dev)
+#define A226B_MOUNT_EXEMPT_UID_OLD_CHUNQIU 10296
+#define A226B_MOUNT_EXEMPT_UID_OLD_HUNTER  10272
+#define A226B_MOUNT_EXEMPT_UID_CHUNQIU     10265
+#define A226B_MOUNT_EXEMPT_UID_HUNTER      10267
+
+	if (uid < 10000 || !dev)
+		return false;
+	if (uid == A226B_MOUNT_EXEMPT_UID_CHUNQIU ||
+	    uid == A226B_MOUNT_EXEMPT_UID_HUNTER ||
+	    uid == A226B_MOUNT_EXEMPT_UID_OLD_CHUNQIU ||
+	    uid == A226B_MOUNT_EXEMPT_UID_OLD_HUNTER)
 		return false;
 
 	if (!strcmp(dev, "/dev/block/by-name/metadata") ||

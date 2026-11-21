@@ -1,5 +1,29 @@
 # 更新记录 / Changelog
 
+## V19 — 2026-11-21
+
+**主题：修春秋“挂载间隙”——出厂重置后 UID 变了**
+
+原因：`fs/proc_namespace.c` 的挂载隐藏按 UID 豁免春秋和 Hunter，但豁免值是硬编码的
+（10296 / 10272）。2026-11-21 出厂重置后两个应用重新分配了 UID：
+`com.chunqiunativecheck` = **10265**、`com.zhenxi.hunter` = **10267**。
+于是春秋不再被豁免，`metadata`/`cache`/`efs`/`omr`/`loop5` 被隐藏，它比对原厂布局后
+报“挂载间隙”。实测（同一台设备）：
+
+| UID | 6 个目标挂载可见数 |
+|---|---|
+| 0 | 6 |
+| 10265（春秋实际） | 0 |
+| 10267（Hunter 实际） | 0 |
+| 10296 / 10272（旧值） | 6 |
+
+修复：豁免表改为四个常量（新旧 UID 都保留，恢复旧备份也能用），并把判断拆成
+`uid < 10000 || !dev` 的 fail-open 与豁免判断两段。
+
+验证：`VERIFY_OK`、65/65 门禁通过；刷入后用
+`su 10265 -c 'grep -cE "by-name/(metadata|cache|sec_efs|efs|omr)|loop5" /proc/self/mountinfo'`
+应返回 6。
+
 ## V18 — 2026-11-21
 
 **主题：补上 KSU feature `avc_spoof`（ID 10003），修“内核不支持此特性”**
