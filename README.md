@@ -4,7 +4,7 @@
 
 > Samsung Galaxy A22 5G（SM-A226B / a22x / MediaTek MT6833）Linux 4.14.186 内核源码与卡刷包
 >
-> **内核级 Root：SukiSU-Nova**（原 SukiSU-Ultra；builtin，v3.0.0 / KSU_VERSION 35049，随上游 main 漂移）
+> **内核级 Root：SukiSU-Nova**（原 SukiSU-Ultra；builtin，v3.0.0 / KSU_VERSION 35061，随上游 main 漂移）
 >
 > 🌐 中文（默认） | [English](README.en.md)
 
@@ -16,12 +16,12 @@
 
 ---
 
-## 一、当前版本（V16）
+## 一、当前版本（V17）
 
 | 组件 | 版本 / 说明 |
 |---|---|
 | 内核 | Linux 4.14.186，Samsung `SM-A226B_13_Opensource` |
-| Root | SukiSU-Nova `builtin`（原 SukiSU-Ultra），v3.0.0，KSU_VERSION **35049**（构建期覆盖，对齐管理器） |
+| Root | SukiSU-Nova `builtin`（原 SukiSU-Ultra），v3.0.0，KSU_VERSION **35061**（构建期覆盖，对齐管理器） |
 | SUSFS | **v2.4.0**（Non-GKI 4.14 移植） |
 | NoMount | **v2.3.0**（内核驱动内置） |
 | PathMask | 4.14 移植（`pathmask.ko` + `procguard.ko`，KSU 模块） |
@@ -53,7 +53,8 @@
 | **V13** | 仅重编：KSU 版本随上游 main 前进到 **41183**，源码与 V12 相同；新增全仓库审计与总览文档 | 上一版 |
 | **V14** | SukiSU 更名 **SukiSU-Nova**：内置源码升级到 `builtin@4bec532d`，包名改 `com.sukisu.nova`，完整版本串 `v3.0.0`；5 处 4.14 兼容改动全部保留 | 上一版 |
 | **V15** | SUSFS 4.14 补丁同步上游（SUS_PATH `i_state` 等修复）；内核版本公式改为与管理器一致，输出 **35040** | 上一版 |
-| **V16** | NoMount 升级 **2.3.1**（KEYS select、export_operations 代理、启动优化）；版本对齐管理器 **35049** | 当前推荐版本 |
+| **V16** | NoMount 升级 **2.3.1**（KEYS select、export_operations 代理、启动优化）；版本对齐管理器 **35049** | 上一版 |
+| **V17** | AVC 日志伪装改为**内核默认启用**（不依赖 KSU 模块）；版本对齐 **35061** | 当前推荐版本 |
 
 每个 Release 都附对应卡刷包与更新说明。
 

@@ -1,5 +1,24 @@
 # 更新记录 / Changelog
 
+## V17 — 2026-11-21
+
+**主题：AVC 日志伪装默认启用 + 版本对齐 35061**
+
+- `KernelSU/kernel/selinux/selinux.c`：在 `susfs_set_batch_sid()` 里，sid 解析成功后
+  自动 `static_branch_enable(&susfs_is_avc_log_spoofing_enabled)`。
+  上游只在用户态发 `CMD_SUSFS_ENABLE_AVC_LOG_SPOOFING` 时才打开；本机 KSU 模块已按用户
+  要求删除，没人再发这个 ioctl，导致 `security/selinux/avc.c` 的伪装分支永远不执行。
+  现在改为内核启动时自启用，仍可用 ioctl 关闭；
+- 该功能作用：AVC 审计日志里若 `tcontext` 是 `u:r:ksu:s0`，替换为
+  `u:r:priv_app:s0:c512,c768`（`tsid` 也替换为 priv_app 的 sid），避免日志暴露 root 域；
+- 管理器 versionCode 到 **35061**，构建用 `KSU_VERSION_OVERRIDE=35061`；uapi 仍 6；
+- 插件盘点：Nova `builtin@4bec532d`、SUSFS 4.14 补丁（md5 未变）、NoMount `dcd77d03`、
+  PathMask v2.8.3 **均无更新**。
+
+验证：`VERIFY_OK`、65/65 feature 检查通过，镜像内含
+`avc log spoofing enabled at boot` 字符串。刷入后可用
+`dmesg | grep -i "avc log spoofing"` 确认。
+
 ## V16 — 2026-11-21
 
 **主题：NoMount 2.3.1 + 内核版本号对齐管理器 35049**
