@@ -1,5 +1,20 @@
 # 更新记录 / Changelog
 
+## V21 — 2026-11-22
+
+**主题：对齐 Telegram 渠道的新管理器 35070（源码无更新）**
+
+- 新管理器：`SukiSU_Nova_v3.0.0-r1_35070`（ksud `manager-ci-1-g33f33d36`，uapi 仍 6）；
+  已装旧包是 `35061`（ksud `g08145d34`）；
+- 与公开仓库对比：`main`=`1439545f`、`builtin`=`4bec532d`、`dev`=`1439545f` 均未变；
+  新包的构建 commit `33f33d36` 在公开仓库查不到（`manager-ci` 标签现指向 `c60f21b9`），
+  属未公开的 CI 提交，**没有内核源码可同步**；
+- 二进制对比：uapi 6、feature 8 项（含 `avc_spoof`）、SUSFS 命令集与旧包完全一致，
+  因此只需把内核 `KSU_VERSION` 对齐到 **35070**；
+- 插件：KernelSU / SUSFS / NoMount / PathMask 均无更新（V20 已是最新）。
+
+验证：`VERIFY_OK`、65/65 门禁通过，镜像版本串 `v3.0.0-ee9421d4@main`。
+
 ## V20 — 2026-11-22
 
 **主题：NoMount 上游新修复 + 管理器 v3.0.0-r1**
