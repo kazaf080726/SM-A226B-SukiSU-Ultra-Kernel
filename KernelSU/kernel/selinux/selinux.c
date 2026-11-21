@@ -341,21 +341,5 @@ void susfs_set_batch_sid(void)
     susfs_set_sid(KERNEL_SU_CONTEXT, &susfs_ksu_sid);
     susfs_set_sid(KERNEL_INIT_DOMAIN, &susfs_init_sid);
     susfs_set_sid(KERNEL_PRIV_APP_DOMAIN, &susfs_priv_app_sid);
-
-    /*
-     * Local: enable AVC log spoofing by default.
-     *
-     * Upstream exposes CMD_SUSFS_ENABLE_AVC_LOG_SPOOFING and leaves the
-     * feature off until userspace asks for it.  On this device the userspace
-     * modules that used to do that are not installed, so the spoofing code in
-     * security/selinux/avc.c would never run.  Turn it on here, after the
-     * sids are resolved, so audit logs never expose u:r:ksu:s0 as a target
-     * context.  It can still be disabled at runtime through the ioctl.
-     */
-    if (susfs_ksu_sid && susfs_priv_app_sid) {
-        static_branch_enable(&susfs_is_avc_log_spoofing_enabled);
-        pr_info("[susfs] avc log spoofing enabled at boot (ksu_sid=%u priv_app_sid=%u)\n",
-                susfs_ksu_sid, susfs_priv_app_sid);
-    }
 }
 #endif

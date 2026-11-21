@@ -37,6 +37,7 @@
 #include "feature/sulog.h"
 #include "feature/mount_hide.h"
 #include "feature/selinux_hide.h"
+#include "feature/avc_spoof.h"
 #include "feature/shell_su_adb_only.h"
 #include "runtime/ksud.h"
 #include "sulog/event.h"
@@ -124,6 +125,7 @@
 #include "feature/selinux_hide.c"
 #else
 #include "feature/selinux_hide_compat.c"
+#include "feature/avc_spoof_compat.c"
 #endif
 #include "feature/shell_su_adb_only.c"
 #include "feature/mount_hide.c"
@@ -196,6 +198,8 @@ int __init kernelsu_init(void)
     ksu_shell_su_adb_only_init();
 
     ksu_selinux_hide_init();
+
+    ksu_avc_spoof_init();
 
     ksu_kernel_umount_init();
 

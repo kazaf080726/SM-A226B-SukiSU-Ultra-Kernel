@@ -1,5 +1,29 @@
 # 更新记录 / Changelog
 
+## V18 — 2026-11-21
+
+**主题：补上 KSU feature `avc_spoof`（ID 10003），修“内核不支持此特性”**
+
+根因：AVC 日志伪装在 SukiSU-Nova 里是 **KernelSU 的 feature**（`avc_spoof`，ID 10003），
+不是 SUSFS 的功能。管理器按 ID 查询；我们的 `builtin@4bec532d` 快照里没有这个 feature，
+`ksud feature list` 返回 `[NOT_SUPPORTED] avc_spoof (ID=10003)`，UI 自然显示“不支持”。
+V17 之前把 SUSFS 的静态键默认打开只是让内核侧代码可执行，并没有让管理器识别到 feature。
+
+修复：
+- `KernelSU/uapi/feature.h` + `kernel/include/uapi/feature.h`：加入
+  `KSU_FEATURE_AVC_SPOOF = 10003`（与上游 ID 一致）；
+- 新增 `kernel/feature/avc_spoof_compat.c` + `avc_spoof.h`：注册 feature 处理器，
+  get/set 直接开关 `susfs_is_avc_log_spoofing_enabled`（真正的改写已在
+  `security/selinux/avc.c` 里，等价于上游的 `slow_avc_audit` kprobe 方案）；
+- `policy/feature.c`：为 10003 注册名字 `avc_spoof`（否则按名字查询失败）；
+- `extension/extension.c`：`forced_mask`/`forced_pending` 改名 `ext_*`，避免
+  `KSU_FEATURE_MAX` 增大后与 feature.c 的同名位图在同一编译单元冲突；
+- `selinux.c` 里 V17 的“启动即启用”已移除，改由 feature 管理（默认 enabled=1，
+  仍可用管理器开关关闭）。
+
+验证：镜像内含 `avc_spoof` 符号与字符串，65/65 门禁通过；刷入后
+`ksud feature list` 应显示 `[ENABLED] avc_spoof (ID=10003)`。
+
 ## V17 — 2026-11-21
 
 **主题：AVC 日志伪装默认启用 + 版本对齐 35061**
