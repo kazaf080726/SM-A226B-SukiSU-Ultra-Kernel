@@ -1,5 +1,33 @@
 # 更新记录 / Changelog
 
+## V25 — 2026-11-23
+
+**主题：内核级动态挂载豁免（根治“挂载间隙”）**
+
+原因（实测）：`fs/proc_namespace.c` 的挂载隐藏按 UID 豁免春秋/Hunter，而 UID 是硬编码。
+设备在 2026-11-22/23 又重装过检测器：
+
+| 应用 | 旧 UID | 实测 UID |
+|---|---|---|
+| com.chunqiunativecheck | 10265 | **10303** |
+| com.zhenxi.hunter | 10267 | **10281** |
+
+同一台设备用不同 UID 读取 `/proc/self/mountinfo` 中 6 个原厂挂载的可见数：
+root=6、**10303=0**、10265=6、**10281=0** —— 春秋看到 0 条，于是报“挂载间隙”。
+
+修复（内核级，不再依赖编译期 UID）：
+- 新增 `a226b_refresh_exempt_uids()`：内核直接读取 `/data/system/packages.list`，
+  按包名前缀 `com.chunqiu` / `com.zhenxi` 解析出当前 UID，最多缓存 8 个；
+- 在 `mounts_open_common()` 打开挂载表时刷新，节流 30 秒，正常读取只走内存缓存；
+- `a226b_hide_mount_line()` 改为查缓存；旧 UID（10296/10272/10265/10267/10303/10281/
+  10298/10310）保留为 `/data` 尚不可读时的兜底；
+- 该 Samsung 4.14 树回填了新版 `kernel_read()` 签名（`ssize_t kernel_read(file, buf, count, &pos)`），
+  代码按此调用。
+
+验证：`VERIFY_OK`、65/65 门禁通过；刷入后
+`su 10303 -c 'grep -cE "by-name/(metadata|cache|sec_efs|efs|omr)|loop5" /proc/self/mountinfo'`
+应返回 6（当前为 0）。
+
 ## V23 — 2026-11-22
 
 **主题：对齐管理器 35081（翻译提交，内核无变化）**

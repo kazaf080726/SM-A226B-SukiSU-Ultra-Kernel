@@ -8,6 +8,11 @@
  *
  */
 #include <linux/mnt_namespace.h>
+#include <linux/fs.h>
+#include <linux/slab.h>
+#include <linux/jiffies.h>
+#include <linux/spinlock.h>
+#include <linux/string.h>
 #include <linux/nsproxy.h>
 #include <linux/security.h>
 #include <linux/fs_struct.h>
@@ -260,6 +265,144 @@ out:
 
 
 /*
+ * Dynamic mount-exempt UIDs.
+ *
+ * NativeCheck (com.chunqiunativecheck) and Hunter (com.zhenxi.hunter)
+ * cross-check the app-visible mount table against the stock Samsung layout and
+ * report a "mount gap" as soon as the stock mounts are hidden from them.
+ *
+ * Their UIDs are Android app ids, so a compile-time list is always one
+ * reinstall or factory reset behind: on this device the values moved
+ * 10296/10272 -> 10265/10267 -> 10303/10281 within a week.  Resolve the ids
+ * from /data/system/packages.list (package name -> uid) instead, cache the
+ * result and refresh it at most every 30 seconds, triggered when a mount table
+ * is opened.  The legacy ids stay as a fallback for the window before /data is
+ * readable, or if the file cannot be parsed.
+ */
+#define A226B_EXEMPT_UID_MAX 8
+#define A226B_EXEMPT_REFRESH_SECS 30
+
+static u32 a226b_exempt_uids[A226B_EXEMPT_UID_MAX];
+static int a226b_exempt_uid_count;
+static DEFINE_SPINLOCK(a226b_exempt_lock);
+static unsigned long a226b_exempt_refresh_jiffies;
+
+static const u32 a226b_legacy_exempt_uids[] = {
+	10296, 10272,	/* before the 2026-11-21 factory reset */
+	10265, 10267,	/* after that reset */
+	10303, 10281,	/* reinstall on 2026-11-23 */
+	10298, 10310,	/* chunqiu companion packages */
+};
+
+static bool a226b_pkg_has_prefix(const char *name, size_t len, const char *pfx)
+{
+	size_t n = strlen(pfx);
+
+	return len >= n && !memcmp(name, pfx, n);
+}
+
+static void a226b_collect_exempt_uid(const char *line, size_t len,
+				     u32 *out, int *count)
+{
+	const char *p = line, *end = line + len, *name;
+	size_t name_len;
+	u32 uid = 0;
+
+	while (p < end && (*p == ' ' || *p == '\t'))
+		p++;
+	name = p;
+	while (p < end && *p != ' ' && *p != '\t' && *p != '\n')
+		p++;
+	name_len = p - name;
+	if (!a226b_pkg_has_prefix(name, name_len, "com.chunqiu") &&
+	    !a226b_pkg_has_prefix(name, name_len, "com.zhenxi"))
+		return;
+
+	while (p < end && (*p == ' ' || *p == '\t'))
+		p++;
+	if (p >= end || *p < '0' || *p > '9')
+		return;
+	while (p < end && *p >= '0' && *p <= '9')
+		uid = uid * 10 + (*p++ - '0');
+	if (uid < 10000)
+		return;
+	if (*count < A226B_EXEMPT_UID_MAX)
+		out[(*count)++] = uid;
+}
+
+static void a226b_refresh_exempt_uids(void)
+{
+	struct file *f;
+	char *buf;
+	char line[192];
+	size_t line_len = 0;
+	loff_t pos = 0;
+	u32 found[A226B_EXEMPT_UID_MAX];
+	int nfound = 0;
+	ssize_t n;
+	int i;
+
+	if (time_before(jiffies, READ_ONCE(a226b_exempt_refresh_jiffies)))
+		return;
+	WRITE_ONCE(a226b_exempt_refresh_jiffies,
+		   jiffies + A226B_EXEMPT_REFRESH_SECS * HZ);
+
+	f = filp_open("/data/system/packages.list", O_RDONLY, 0);
+	if (IS_ERR(f))
+		return;
+	buf = kmalloc(4096, GFP_KERNEL);
+	if (!buf) {
+		filp_close(f, NULL);
+		return;
+	}
+
+	/* This Samsung 4.14 tree backports the post-4.14 kernel_read() ABI
+	 * (ssize_t kernel_read(file, buf, count, &pos)). */
+	while ((n = kernel_read(f, buf, 4096, &pos)) > 0) {
+		for (i = 0; i < n; i++) {
+			char c = buf[i];
+
+			if (c == '\n') {
+				a226b_collect_exempt_uid(line, line_len, found, &nfound);
+				line_len = 0;
+			} else if (line_len < sizeof(line)) {
+				line[line_len++] = c;
+			} else {
+				line_len = 0;	/* overlong line: drop it */
+			}
+		}
+	}
+	kfree(buf);
+	filp_close(f, NULL);
+
+	spin_lock(&a226b_exempt_lock);
+	memset(a226b_exempt_uids, 0, sizeof(a226b_exempt_uids));
+	memcpy(a226b_exempt_uids, found, sizeof(u32) * nfound);
+	a226b_exempt_uid_count = nfound;
+	spin_unlock(&a226b_exempt_lock);
+}
+
+static bool a226b_uid_is_mount_exempt(u32 uid)
+{
+	unsigned long flags;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(a226b_legacy_exempt_uids); i++)
+		if (uid == a226b_legacy_exempt_uids[i])
+			return true;
+
+	spin_lock_irqsave(&a226b_exempt_lock, flags);
+	for (i = 0; i < a226b_exempt_uid_count; i++) {
+		if (uid == a226b_exempt_uids[i]) {
+			spin_unlock_irqrestore(&a226b_exempt_lock, flags);
+			return true;
+		}
+	}
+	spin_unlock_irqrestore(&a226b_exempt_lock, flags);
+	return false;
+}
+
+/*
  * Anti-detection mount view: stock Samsung partitions and the /optics
  * carrier-config loop mount are part of every stock boot, but some detectors
  * label the app-namespace copies of them as "suspicious mounts".  Keep the
@@ -271,29 +414,9 @@ static bool a226b_hide_mount_line(struct vfsmount *mnt)
 	const char *dev = r->mnt_devname;
 	unsigned int uid = __kuid_val(current_uid());
 
-	/*
-	 * 春秋/NativeCheck (com.chunqiunativecheck) and Hunter
-	 * (com.zhenxi.hunter) cross-check the mounted set against the stock
-	 * Samsung layout and report a "mount gap" when /metadata, /cache, /efs or
-	 * /omr disappear.  Keep their view complete; only hide these stock mounts
-	 * from the other detector apps.
-	 *
-	 * The UIDs are Android app ids and therefore change whenever the apps are
-	 * reinstalled or the device is factory reset.  10296/10272 are the values
-	 * observed before the 2026-11-21 reset, 10265/10267 after it; keep both so
-	 * a restored backup still works.
-	 */
-#define A226B_MOUNT_EXEMPT_UID_OLD_CHUNQIU 10296
-#define A226B_MOUNT_EXEMPT_UID_OLD_HUNTER  10272
-#define A226B_MOUNT_EXEMPT_UID_CHUNQIU     10265
-#define A226B_MOUNT_EXEMPT_UID_HUNTER      10267
-
 	if (uid < 10000 || !dev)
 		return false;
-	if (uid == A226B_MOUNT_EXEMPT_UID_CHUNQIU ||
-	    uid == A226B_MOUNT_EXEMPT_UID_HUNTER ||
-	    uid == A226B_MOUNT_EXEMPT_UID_OLD_CHUNQIU ||
-	    uid == A226B_MOUNT_EXEMPT_UID_OLD_HUNTER)
+	if (a226b_uid_is_mount_exempt(uid))
 		return false;
 
 	if (!strcmp(dev, "/dev/block/by-name/metadata") ||
@@ -475,7 +598,12 @@ out:
 static int mounts_open_common(struct inode *inode, struct file *file,
 			      int (*show)(struct seq_file *, struct vfsmount *))
 {
-	struct task_struct *task = get_proc_task(inode);
+	struct task_struct *task;
+
+	/* Refresh the detector UID cache before building the table. */
+	a226b_refresh_exempt_uids();
+
+	task = get_proc_task(inode);
 	struct nsproxy *nsp;
 	struct mnt_namespace *ns = NULL;
 	struct path root;
