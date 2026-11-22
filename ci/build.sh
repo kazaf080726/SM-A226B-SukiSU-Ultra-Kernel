@@ -5,6 +5,25 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
+# --- SukiSU version pin ------------------------------------------------------
+# The manager versionCode can no longer be derived from the public Nova repo:
+# the Telegram builds come from private CI commits, so every release records
+# the matching number in ci/manager-version.txt.  An explicit
+# KSU_VERSION_OVERRIDE in the environment still takes precedence.
+if [ -z "${KSU_VERSION_OVERRIDE:-}" ] && [ -f "$ROOT/ci/manager-version.txt" ]; then
+    KSU_VERSION_OVERRIDE="$(head -n1 "$ROOT/ci/manager-version.txt" | tr -d '[:space:]')"
+    export KSU_VERSION_OVERRIDE
+fi
+if [ -n "${KSU_VERSION_OVERRIDE:-}" ]; then
+    case "$KSU_VERSION_OVERRIDE" in
+        *[!0-9]*)
+            echo "=== ERROR: invalid KSU_VERSION_OVERRIDE '$KSU_VERSION_OVERRIDE'" >&2
+            exit 1
+            ;;
+    esac
+    echo "=== SukiSU version pinned: $KSU_VERSION_OVERRIDE"
+fi
+
 export ARCH=arm64
 export SUBARCH=arm64
 # Use a POSIX-only PATH for the kernel build.  On WSL the inherited PATH

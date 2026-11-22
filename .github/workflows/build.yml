@@ -12,6 +12,11 @@ on:
       - 'NOTICE*'
       - '.gitignore'
   workflow_dispatch:
+    inputs:
+      ksu_version:
+        description: 'Optional KSU_VERSION override (defaults to ci/manager-version.txt)'
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -29,6 +34,7 @@ jobs:
       USE_CCACHE: "1"
       CCACHE_DIR: ${{ github.workspace }}/.ccache
       CCACHE_MAXSIZE: 1500M
+      KSU_VERSION_OVERRIDE: ${{ inputs.ksu_version }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4

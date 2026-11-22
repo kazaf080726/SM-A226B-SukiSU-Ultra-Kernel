@@ -132,3 +132,17 @@ GitHub Actions 已默认开启，并用 `actions/cache` 缓存 `.ccache`（单�
 - `A226B-Modules-<run>`：内核模块包（如有）
 - `A226B-PathMask-<run>`：PathMask 模块包
 - `A226B-verify-logs-<run>`：`build.log`、`feature-verify.txt`、`ccache-stats.txt`
+
+
+---
+
+## SukiSU 版本固定（`ci/manager-version.txt`）
+
+管理器的 versionCode 已经无法从公开仓库推导：Telegram 渠道的构建来自未公开的 CI 提交，
+公开的 `main`/`builtin` 提交数算不出对应数字。
+
+因此每次发版把目标 versionCode 写进 `ci/manager-version.txt`（一行纯数字），
+`ci/build.sh` 在环境变量 `KSU_VERSION_OVERRIDE` 未设置时会读取该文件并传给
+`KernelSU/kernel/Makefile`；显式环境变量仍然优先。
+
+GitHub Actions 也支持手动触发时通过 `ksu_version` 输入临时覆盖。
