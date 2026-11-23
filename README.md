@@ -16,7 +16,7 @@
 
 ---
 
-## 一、当前版本（V26）
+## 一、当前版本（V27）
 
 | 组件 | 版本 / 说明 |
 |---|---|
@@ -62,7 +62,8 @@
 | **V22** | 对齐 Telegram 渠道管理器 35073（源码未变，仅版本对齐） | 上一版 |
 | **V23** | 对齐管理器 35081（翻译提交，源码未变，仅版本对齐） | 上一版 |
 | **V25** | 内核级动态挂载豁免：解析 `packages.list` 取春秋/Hunter 当前 UID，根治重置后“挂载间隙” | 上一版 |
-| **V26** | 修复 `selinux_hook` clean-policy 重定向在“应用UID+root域”组合下的 kernel panic | 当前推荐版本 |
+| **V26** | 修复 selinux_hook clean-policy 重定向在“应用UID+root域”组合下的 kernel panic | 上一版 |
+| **V27** | SELinux 隐藏对齐原厂：状态页回退 0/0 + App 视角假状态页 + 去掉 clean-policy 重定向（修 Maple 兼容/查询异常） | 当前推荐版本 |
 
 每个 Release 都附对应卡刷包与更新说明。
 

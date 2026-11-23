@@ -3150,20 +3150,21 @@ static void before_sel_write_access(hook_fargs4_t *a, void *u)
         return;
     }
 
-    /* Run the original selinuxfs write_op under the current task's clean scope. */
+    /*
+     * Run the original selinuxfs write_op with the LIVE policydb.  The old
+     * clean-policydb redirect changed both the caller permission check and
+     * the parse order, which surfaced as EINVAL for malformed probes where
+     * stock returns EACCES.  Dirty context/pair probes are already filtered
+     * above; the response seqno is fixed up to 1 in after_sel_write_common().
+     */
     a->local.data0 = 3;
     a->local.data1 = n;
-    slot = n & (ACCESS_PROBE_SLOTS - 1);
-    a->local.data2 = slot;
-    g_probes[slot].id = n;
-    g_probes[slot].uid = uid;
-    g_probes[slot].node = "access";
-    copy_bytes(g_probes[slot].query, sample, ACCESS_SAMPLE_MAX);
-    if (enter_clean_eval_scope()) {
-        a->local.data3 = 1;
-    } else {
-        a->local.data0 = 0;
-    }
+    a->local.data2 = n & (ACCESS_PROBE_SLOTS - 1);
+    a->local.data3 = 0;
+    g_probes[a->local.data2].id = n;
+    g_probes[a->local.data2].uid = uid;
+    g_probes[a->local.data2].node = "access";
+    copy_bytes(g_probes[a->local.data2].query, sample, ACCESS_SAMPLE_MAX);
 }
 
 /* Hook: /sys/fs/selinux/context write handler */
@@ -3261,12 +3262,16 @@ static void before_sel_write_context(hook_fargs4_t *a, void *u)
     g_probes[slot].node = "context";
     copy_bytes(g_probes[slot].query, sample, ACCESS_SAMPLE_MAX);
 
+    /*
+     * Do NOT redirect the original sel_write_context() to the clean
+     * policydb.  The redirect also changed the caller's own permission check
+     * and the parse order, which a DirtySepolicy-style oracle detects as an
+     * errno deviation (malformed writes got EINVAL instead of stock EACCES).
+     * Hidden contexts are filtered above, so plain live-policy execution is
+     * byte-for-byte stock for everything that reaches this point.
+     */
     a->local.data0 = 3;
-    if (enter_clean_eval_scope()) {
-        a->local.data3 = 1;
-    } else {
-        a->local.data0 = 0;
-    }
+    a->local.data3 = 0;
 }
 
 static void after_sel_write_common(hook_fargs4_t *a, void *u)

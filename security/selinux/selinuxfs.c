@@ -218,10 +218,28 @@ static const struct file_operations sel_handle_unknown_ops = {
 	.llseek		= generic_file_llseek,
 };
 
+#ifdef CONFIG_KSU
+extern struct page *ksu_selinux_hide_status_page(void);
+#endif
+
 static int sel_open_handle_status(struct inode *inode, struct file *filp)
 {
 	struct selinux_fs_info *fsi = file_inode(filp)->i_sb->s_fs_info;
-	struct page    *status = selinux_kernel_status_page(fsi->state);
+	struct page    *status;
+
+#ifdef CONFIG_KSU
+	/*
+	 * App processes must see the stock status page (version 1, sequence 0,
+	 * policyload 0) even though the kernel applied the KernelSU policy
+	 * patch and bumped the counters.  ksu_selinux_hide_status_page()
+	 * returns NULL for root/policy managers and when the feature is off.
+	 */
+	status = ksu_selinux_hide_status_page();
+	if (!status)
+		status = selinux_kernel_status_page(fsi->state);
+#else
+	status = selinux_kernel_status_page(fsi->state);
+#endif
 
 	if (!status)
 		return -ENOMEM;

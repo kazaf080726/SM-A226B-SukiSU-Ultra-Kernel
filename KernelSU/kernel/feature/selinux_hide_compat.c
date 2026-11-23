@@ -65,3 +65,55 @@ void ksu_selinux_hide_exit(void)
 void ksu_selinux_hide_drop_backup_if_unused(void) {}
 void ksu_selinux_hide_handle_second_stage(void) {}
 void ksu_selinux_hide_handle_post_fs_data(void) {}
+
+/*
+ * 4.14 builtin: app-visible SELinux status page.
+ *
+ * Unlike the 5.10+ tree, KernelSU applies its policy patch in-kernel here, so
+ * the real status page already carries a bumped sequence/policyload.  The KPM
+ * selinux_hook layer only rewrites a few read paths, which leaves read() and
+ * mmap() observers with inconsistent values; a DirtySepolicy-style oracle
+ * reports that as "modern initial status counters".
+ *
+ * Serve app observers a stock-looking page instead:
+ *   version 1, sequence 0, enforcing 1, policyload 0, deny_unknown 1.
+ * Root and policy managers keep the real page.
+ */
+#include <linux/mm.h>
+#include <linux/gfp.h>
+#include <linux/cred.h>
+#include <linux/atomic.h>
+#include <security.h>
+
+static struct page *ksu_hide_fake_status;
+
+struct page *ksu_selinux_hide_status_page(void)
+{
+	struct page *page;
+	struct selinux_kernel_status *status;
+
+	if (!READ_ONCE(ksu_selinux_hide_enabled))
+		return NULL;
+	if (__kuid_val(current_uid()) < 10000)
+		return NULL;
+
+	page = READ_ONCE(ksu_hide_fake_status);
+	if (page)
+		return page;
+
+	page = alloc_page(GFP_KERNEL | __GFP_ZERO);
+	if (!page)
+		return NULL;
+
+	status = page_address(page);
+	status->version = SELINUX_KERNEL_STATUS_VERSION;
+	status->sequence = 0;
+	status->enforcing = 1;
+	status->policyload = 0;
+	status->deny_unknown = 1;
+
+	if (cmpxchg(&ksu_hide_fake_status, NULL, page))
+		__free_page(page);
+
+	return READ_ONCE(ksu_hide_fake_status);
+}

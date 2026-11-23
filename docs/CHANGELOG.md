@@ -1,5 +1,36 @@
 # 更新记录 / Changelog
 
+## V27 — 2026-11-24
+
+**主题：消除 Maple/DuckDetector 的“SELinux 策略兼容/查询服务异常”（应急方案一）**
+
+调查结论（对照三星原厂 `t24` 源码 + DirtySepolicy 判据 + Maple 进程堆取证）：
+
+1. `security/selinux/ss/status.c` 从 V7 起被改成“现代内核干净值”
+   （`sequence=4`、`policyload=1`，且冻结 seqlock 自增），而**三星原厂 4.14 是
+   `sequence=0`、`policyload=0`**。DuckDetector 对 `<6.10` 内核的干净基线正是 0/0，
+   因此状态页被判定为“Modern initial status counters”。
+2. KPM `selinux_hook` 对 access/context 写把原函数放到 clean policydb 下执行，
+   连**调用者的权限检查顺序**也一起改变：畸形查询返回 `EINVAL(22)`，而 stock 是
+   `EACCES(13)`（Maple 原生 oracle 的 `control0..3 malformed vs stock` 记录）。
+
+修复：
+- `status.c` 恢复三星原厂逻辑（初始 0/0 + 正常 seqlock 自增 + policyload=seqno）；
+- `selinuxfs.c` 的 `sel_open_handle_status()` 对 **App（uid≥10000）** 返回一张
+  fake status page：`version=1, sequence=0, enforcing=1, policyload=0, deny_unknown=1`，
+  read 与 mmap 看到同一页；root/管理器仍读真实页；
+- KPM 的 `before_sel_write_access()` / `before_sel_write_context()` 移除
+  clean-policydb 重定向（保留脏上下文/配对过滤与 seqno 修正），恢复 stock 的
+  权限检查与解析顺序。
+
+实测（V27 刷入后）：
+- `/sys/fs/selinux/status`：root 与 App 视角均为 `1 0 1 0 1`；
+- Maple Ultra 日常：285 项，**SELinux 侧信道项消失**（283 完美）；
+- 残留的 APatch supercall 时序、KernelSU 侧信道两项为历史已知波动项，与本次修复无关。
+
+后续（方案二）：弃用 KPM，把 main/LKM 分支的完整 `selinux_hide.c`
+（write_op 自答 + fake status page + LSM hook）移植进 4.14 builtin。
+
 ## V26 — 2026-11-23
 
 **主题：修复 `selinux_hook` clean-policy 重定向导致的 kernel panic（BUG at services.c:686）**
