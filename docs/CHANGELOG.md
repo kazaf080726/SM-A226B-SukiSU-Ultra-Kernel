@@ -1,5 +1,40 @@
 # 更新记录 / Changelog
 
+## V26 — 2026-11-23
+
+**主题：修复 `selinux_hook` clean-policy 重定向导致的 kernel panic（BUG at services.c:686）**
+
+现象：设备在 2026-11-23 20:39 左右自行重启，`sys.boot.reason=kernel_panic`。
+pstore / `last_kmsg` 现场：
+
+```
+kernel BUG at security/selinux/ss/services.c:686!
+context_struct_compute_av+0x570  (BUG_ON(!sattr))
+security_compute_av -> avc_compute_av -> avc_has_perm
+sel_write_access+0xb8
+pid 17728 comm=sh uid=10285
+```
+
+根因：
+- 内置的 `selinux_hook`（`security/selinux/selinux_hook_kpm/selinux_hook.c`）按
+  **当前 UID** 判断是否把 AV 计算切到 clean policydb；
+- `su <应用UID>`（KernelSU 的 uid 切换）会造出 **应用 UID + ksu 域** 的进程；
+- 该组合在 clean 快照里没有对应的 ksu 类型，`flex_array_get(type_attr_map_array,
+  scontext->type - 1)` 返回 NULL，stock 代码里的 `BUG_ON(!sattr)` 直接 panic。
+
+修复（两层）：
+1. `before_context_struct_compute_av_policydb()`：重定向到 clean policydb 之前，
+   用新增的 `clean_policydb_contexts_valid()` 校验源/目标上下文的类型号是否落在
+   clean 快照的 `nprim` 与 `type_attr_map_array` 内；不满足则退回 live policydb；
+2. `security/selinux/ss/services.c`：把 `BUG_ON(!sattr)/BUG_ON(!tattr)` 改为
+   范围检查 + `pr_warn_ratelimited` + fail-closed 返回，任何越界上下文都只导致
+   本次 AV 计算被拒绝，不再重启整机。
+
+验证：修复标记已进 `vmlinux`（`clean redirect refused` / `compute_av context type out of range`），
+`VERIFY_OK`、65/65 门禁通过。刷入后复测命令：
+`su 10285 -c 'echo u:r:untrusted_app:s0 u:object_r:ksu_file:s0 file read > /sys/fs/selinux/access'`
+应当返回 EINVAL 而不是 panic。
+
 ## V25 — 2026-11-23
 
 **主题：内核级动态挂载豁免（根治“挂载间隙”）**

@@ -1554,6 +1554,45 @@ static bool context_struct_compute_av_intel(struct policydb *policydb,
     return true;
 }
 
+/*
+ * The clean-policydb redirect is keyed by uid (app uids get the clean view),
+ * but a process can carry an app uid while keeping a privileged domain: the
+ * KernelSU "su <uid>" helper does exactly that (kt_uid switch, ksu domain
+ * unchanged).  Such a domain's type id does not exist in the clean snapshot,
+ * and the real context_struct_compute_av() would walk past
+ * type_attr_map_array and hit BUG_ON(!sattr) -> kernel panic.
+ *
+ * Validate both contexts against the snapshot before redirecting; when they
+ * do not belong to it, keep the live policydb so the call stays well formed.
+ */
+static bool clean_policydb_contexts_valid(void *pdb, void *sctx, void *tctx)
+{
+    struct policydb *policydb = (struct policydb *)pdb;
+    struct context *scontext = (struct context *)sctx;
+    struct context *tcontext = (struct context *)tctx;
+    u32 ntypes;
+
+    if (!policydb || !scontext || !tcontext || !policydb->type_attr_map_array)
+        return false;
+    if (!flex_array_get_fn)
+        return false;
+
+    ntypes = policydb->symtab[SYM_TYPES].nprim;
+    if (!ntypes)
+        return false;
+
+    if (scontext->type < 1 || scontext->type > ntypes ||
+        tcontext->type < 1 || tcontext->type > ntypes)
+        return false;
+
+    if (!flex_array_get_fn(policydb->type_attr_map_array, scontext->type - 1))
+        return false;
+    if (!flex_array_get_fn(policydb->type_attr_map_array, tcontext->type - 1))
+        return false;
+
+    return true;
+}
+
 static void *read_load_state_policy(void *load_state)
 {
     void *policy = NULL;
@@ -2883,12 +2922,34 @@ static void before_context_struct_compute_av_policydb(hook_fargs6_t *a, void *u)
 {
     struct av_decision *avd;
     void *clean_policydb;
+    void *live_policydb = (void *)a->arg0;
 
     a->local.data0 = 0;
 
     before_policydb_arg0(a, u);
 
     clean_policydb = READ_ONCE(g_clean_policydb);
+
+    /*
+     * before_policydb_arg0() may have redirected arg0 to the clean snapshot.
+     * Refuse that redirect when the two contexts do not belong to the
+     * snapshot (app uid + privileged domain), otherwise the real
+     * context_struct_compute_av() panics on the missing type attribute map.
+     */
+    if (clean_policydb && (void *)a->arg0 == clean_policydb &&
+        (void *)a->arg0 != live_policydb) {
+        if (!clean_policydb_contexts_valid(clean_policydb,
+                                           (void *)a->arg1,
+                                           (void *)a->arg2)) {
+            a->arg0 = (uint64_t)live_policydb;
+            selinux_hook_dbg("[selinux_hook] clean redirect refused s=%u t=%u uid=%d comm=%s (type not in clean snapshot)\n",
+                             a->arg1 ? ((struct context *)a->arg1)->type : 0,
+                             a->arg2 ? ((struct context *)a->arg2)->type : 0,
+                             kpm_current_uid(), current_comm());
+            return;
+        }
+    }
+
     if (!clean_policydb || (void *)a->arg0 != clean_policydb ||
         !current_in_clean_eval_scope())
         return;

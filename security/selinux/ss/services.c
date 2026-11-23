@@ -679,14 +679,33 @@ static void __kp_context_struct_compute_av(struct policydb *policydb,
 	 * If a specific type enforcement rule was defined for
 	 * this permission check, then use it.
 	 */
+	/*
+	 * A caller may present a context that does not belong to this policydb
+	 * (for example the selinux_hook clean-policy redirect evaluating a
+	 * privileged domain against the clean snapshot, or a process whose sid
+	 * predates a policy reload).  The upstream code asserts here; a kernel
+	 * panic is not an acceptable outcome for a read-only audit path, so
+	 * fail closed (deny) instead of crashing the device.
+	 */
+	if (unlikely(!scontext->type || scontext->type > policydb->p_types.nprim ||
+		     !tcontext->type || tcontext->type > policydb->p_types.nprim)) {
+		pr_warn_ratelimited("SELinux: compute_av context type out of range (s=%u t=%u nprim=%u)\n",
+				    scontext->type, tcontext->type,
+				    policydb->p_types.nprim);
+		return;
+	}
+
 	avkey.target_class = tclass;
 	avkey.specified = AVTAB_AV | AVTAB_XPERMS;
 	sattr = flex_array_get(policydb->type_attr_map_array,
 			       scontext->type - 1);
-	BUG_ON(!sattr);
 	tattr = flex_array_get(policydb->type_attr_map_array,
 			       tcontext->type - 1);
-	BUG_ON(!tattr);
+	if (unlikely(!sattr || !tattr)) {
+		pr_warn_ratelimited("SELinux: compute_av missing type attribute map (s=%u t=%u)\n",
+				    scontext->type, tcontext->type);
+		return;
+	}
 	ebitmap_for_each_positive_bit(sattr, snode, i) {
 		ebitmap_for_each_positive_bit(tattr, tnode, j) {
 			avkey.source_type = i + 1;
