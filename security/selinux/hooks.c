@@ -89,8 +89,7 @@
 
 #include "avc.h"
 #include "objsec.h"
-#include <linux/selinux_hook_kpm.h>
-#include "selinux_query_filter.h"
+#include "ksu_selinux_hide.h"
 #include "netif.h"
 #include "netnode.h"
 #include "netport.h"
@@ -6134,10 +6133,30 @@ static void selinux_d_instantiate(struct dentry *dentry, struct inode *inode)
 		inode_doinit_with_dentry(inode, dentry);
 }
 
+
+#ifdef CONFIG_KSU
+static bool ksu_hide_ctx_is_dirty(const char *ctx)
+{
+	static const char * const dirty[] = {
+		"ksu", "kernelsu", "magisk", "lsposed", "adbroot",
+		"xposed", "susfs", "apatch", "kpatch",
+	};
+	int i;
+
+	if (!ctx)
+		return false;
+	for (i = 0; i < ARRAY_SIZE(dirty); i++) {
+		if (strstr(ctx, dirty[i]))
+			return true;
+	}
+	return false;
+}
+#endif
+
 static int selinux_getprocattr(struct task_struct *p,
 			       char *name, char **value)
 {
-	const struct task_security_struct *__tsec;
+const struct task_security_struct *__tsec;
 	u32 sid;
 	int error;
 	unsigned len;
@@ -6184,40 +6203,27 @@ bad:
 	return error;
 }
 
-static int __kp_selinux_setprocattr(const char *name, void *value,
-				   size_t size);
-static int selinux_setprocattr(const char *name, void *value, size_t size)
-{
-	hook_fargs4_t a;
-	int ret;
-
-	memset(&a, 0, sizeof(a));
-	a.arg0 = (uint64_t)name;
-	a.arg1 = (uint64_t)value;
-	a.arg2 = (uint64_t)size;
-	kp_hook_before((void *)selinux_setprocattr, &a);
-	if (a.skip_origin)
-		return (int)a.ret;
-	ret = __kp_selinux_setprocattr((const char *)a.arg0, (void *)a.arg1,
-				       (size_t)a.arg2);
-	a.ret = (uint64_t)ret;
-	kp_hook_after((void *)selinux_setprocattr, &a);
-	return (int)a.ret;
-}
-
-static int __kp_selinux_setprocattr(const char *name, void *value,
+static int selinux_setprocattr(const char *name, void *value,
 				   size_t size)
 {
-	struct task_security_struct *tsec;
+	if (ksu_selinux_hide_enabled && !strcmp(name, "current") &&
+	    __kuid_val(current_uid()) >= 10000 && value) {
+		/*
+		 * Hidden contexts are absent from the clean policydb, so the LKM
+		 * tree fails the parse with -EINVAL; the DirtySepolicy oracle
+		 * expects exactly that ("NORMAL_EINVAL") when probing
+		 * /proc/self/attr/current for hidden domains.  -EPERM would be
+		 * reported as INCONCLUSIVE / access anomaly instead.
+		 */
+		if (ksu_hide_ctx_is_dirty(value))
+			return -EINVAL;
+	}
+
+struct task_security_struct *tsec;
 	struct cred *new;
 	u32 mysid = current_sid(), sid = 0, ptsid;
 	int error;
 	char *str = value;
-
-#ifdef CONFIG_SECURITY_SELINUX_QUERY_FILTER
-	if (selinux_query_filter_setprocattr(name, value, size))
-		return -EINVAL;
-#endif
 
 	/*
 	 * Basic control over ability to set these attributes at all.
@@ -7047,20 +7053,7 @@ static void delayed_superblock_init(struct super_block *sb, void *unused)
 	superblock_doinit(sb, NULL);
 }
 
-static void __kp_selinux_complete_init(void);
 void selinux_complete_init(void)
-{
-	hook_fargs0_t a;
-
-	memset(&a, 0, sizeof(a));
-	kp_hook_before((void *)selinux_complete_init, &a);
-	if (a.skip_origin)
-		return;
-	__kp_selinux_complete_init();
-	kp_hook_after((void *)selinux_complete_init, &a);
-}
-
-static void __kp_selinux_complete_init(void)
 {
 	printk(KERN_DEBUG "SELinux:  Completing initialization.\n");
 

@@ -13,7 +13,6 @@
 #include <linux/gfp.h>
 #include <linux/mm.h>
 #include <linux/mutex.h>
-#include <linux/selinux_hook_kpm.h>
 #include "avc.h"
 #include "services.h"
 
@@ -106,24 +105,7 @@ void selinux_status_update_setenforce(struct selinux_state *state,
  * It updates status of the times of policy reloaded, and current
  * setting of deny_unknown.
  */
-static void __kp_selinux_status_update_policyload(struct selinux_state *state,
-						  int seqno);
-void selinux_status_update_policyload(struct selinux_state *state, int seqno)
-{
-	hook_fargs4_t a;
-
-	memset(&a, 0, sizeof(a));
-	a.arg0 = (uint64_t)state;
-	a.arg1 = (uint64_t)seqno;
-	kp_hook_before((void *)selinux_status_update_policyload, &a);
-	if (a.skip_origin)
-		return;
-	__kp_selinux_status_update_policyload((struct selinux_state *)a.arg0,
-					      (int)a.arg1);
-	kp_hook_after((void *)selinux_status_update_policyload, &a);
-}
-
-static void __kp_selinux_status_update_policyload(struct selinux_state *state,
+void selinux_status_update_policyload(struct selinux_state *state,
 						  int seqno)
 {
 	struct selinux_kernel_status   *status;

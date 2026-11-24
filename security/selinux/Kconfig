@@ -113,26 +113,3 @@ config SECURITY_SELINUX_SIDTAB_HASH_BITS
 	  will ensure that lookups times are short and stable.
 
 
-config SECURITY_SELINUX_QUERY_FILTER
-	bool "Native SELinux query filter (hide dirty policy probes)"
-	depends on SECURITY_SELINUX
-	default y
-	help
-	  Filter app-side /sys/fs/selinux/context and /access probes for
-	  contexts added by Magisk / KernelSU / LSPosed, and freeze the
-	  DirtySepolicy avd seqno probe to its clean value.
-
-	  This is the 4.14 legacy logic of selinux_hook 1.1.6.1 compiled
-	  into the kernel (no KernelPatch / KPM needed).  The filter is
-	  active only when the SukiSU "Hide SELinux modification" feature
-	  is enabled, and never applies to uid < 10000.
-
-
-config SECURITY_SELINUX_HOOK_KPM
-	bool "Built-in selinux_hook KPM port (hide dirty SELinux policy)"
-	depends on SECURITY_SELINUX && KALLSYMS_ALL
-	default y
-	help
-	  Compile the selinux_hook 1.1.6.1 logic (clean policy snapshot,
-	  /sys/fs/selinux/policy read hiding, clean AV decisions and the
-	  DirtySepolicy filters) directly into the kernel.

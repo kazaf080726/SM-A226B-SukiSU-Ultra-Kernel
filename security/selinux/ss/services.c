@@ -50,7 +50,6 @@
 #include <linux/audit.h>
 #include <linux/mutex.h>
 #include <linux/selinux.h>
-#include <linux/selinux_hook_kpm.h>
 #include <linux/flex_array.h>
 #include <linux/vmalloc.h>
 #include <net/netlabel.h>
@@ -96,39 +95,12 @@ static int context_struct_to_string(struct policydb *policydb,
 				    char **scontext,
 				    u32 *scontext_len);
 
-static void __kp_context_struct_compute_av(struct policydb *policydb,
+static void context_struct_compute_av(struct policydb *policydb,
 					   struct context *scontext,
 					   struct context *tcontext,
 					   u16 tclass,
 					   struct av_decision *avd,
 					   struct extended_perms *xperms);
-static void context_struct_compute_av(struct policydb *policydb,
-				      struct context *scontext,
-				      struct context *tcontext,
-				      u16 tclass, struct av_decision *avd,
-				      struct extended_perms *xperms)
-{
-	hook_fargs8_t a;
-
-	memset(&a, 0, sizeof(a));
-	a.arg0 = (uint64_t)policydb;
-	a.arg1 = (uint64_t)scontext;
-	a.arg2 = (uint64_t)tcontext;
-	a.arg3 = (uint64_t)tclass;
-	a.arg4 = (uint64_t)avd;
-	a.arg5 = (uint64_t)xperms;
-	kp_hook_before((void *)context_struct_compute_av, &a);
-	if (a.skip_origin)
-		return;
-	__kp_context_struct_compute_av((struct policydb *)a.arg0,
-				       (struct context *)a.arg1,
-				       (struct context *)a.arg2,
-				       (u16)a.arg3,
-				       (struct av_decision *)a.arg4,
-				       (struct extended_perms *)a.arg5);
-	kp_hook_after((void *)context_struct_compute_av, &a);
-}
-
 static int selinux_set_mapping(struct policydb *pol,
 			       struct security_class_mapping *map,
 			       struct selinux_map *out_map)
@@ -643,7 +615,7 @@ void services_compute_xperms_drivers(
  * Compute access vectors and extended permissions based on a context
  * structure pair for the permissions in a particular class.
  */
-static void __kp_context_struct_compute_av(struct policydb *policydb,
+static void context_struct_compute_av(struct policydb *policydb,
 				      struct context *scontext,
 				      struct context *tcontext,
 				      u16 tclass,
@@ -1419,40 +1391,12 @@ int security_sid_to_context_force(struct selinux_state *state, u32 sid,
 /*
  * Caveat:  Mutates scontext.
  */
-static int __kp_string_to_context_struct(struct policydb *pol,
+static int string_to_context_struct(struct policydb *pol,
 					 struct sidtab *sidtabp,
 					 char *scontext,
 					 struct context *ctx,
 					 u32 def_sid);
 static int string_to_context_struct(struct policydb *pol,
-				    struct sidtab *sidtabp,
-				    char *scontext,
-				    struct context *ctx,
-				    u32 def_sid)
-{
-	hook_fargs8_t a;
-	int ret;
-
-	memset(&a, 0, sizeof(a));
-	a.arg0 = (uint64_t)pol;
-	a.arg1 = (uint64_t)sidtabp;
-	a.arg2 = (uint64_t)scontext;
-	a.arg3 = (uint64_t)ctx;
-	a.arg4 = (uint64_t)def_sid;
-	kp_hook_before((void *)string_to_context_struct, &a);
-	if (a.skip_origin)
-		return (int)a.ret;
-	ret = __kp_string_to_context_struct((struct policydb *)a.arg0,
-					    (struct sidtab *)a.arg1,
-					    (char *)a.arg2,
-					    (struct context *)a.arg3,
-					    (u32)a.arg4);
-	a.ret = (uint64_t)ret;
-	kp_hook_after((void *)string_to_context_struct, &a);
-	return (int)a.ret;
-}
-
-static int __kp_string_to_context_struct(struct policydb *pol,
 					 struct sidtab *sidtabp,
 					 char *scontext,
 					 struct context *ctx,
@@ -3793,29 +3737,9 @@ out:
  * @len: length of data in bytes
  *
  */
-static int __kp_security_read_policy(struct selinux_state *state,
+int security_read_policy(struct selinux_state *state,
 				     void **data, size_t *len);
 int security_read_policy(struct selinux_state *state,
-			 void **data, size_t *len)
-{
-	hook_fargs4_t a;
-	int ret;
-
-	memset(&a, 0, sizeof(a));
-	a.arg0 = (uint64_t)state;
-	a.arg1 = (uint64_t)data;
-	a.arg2 = (uint64_t)len;
-	kp_hook_before((void *)security_read_policy, &a);
-	if (a.skip_origin)
-		return (int)a.ret;
-	ret = __kp_security_read_policy((struct selinux_state *)a.arg0,
-					(void **)a.arg1, (size_t *)a.arg2);
-	a.ret = (uint64_t)ret;
-	kp_hook_after((void *)security_read_policy, &a);
-	return (int)a.ret;
-}
-
-static int __kp_security_read_policy(struct selinux_state *state,
 				     void **data, size_t *len)
 {
 	struct policydb *policydb = &state->ss->policydb;
@@ -3845,3 +3769,245 @@ static int __kp_security_read_policy(struct selinux_state *state,
 	return 0;
 
 }
+
+
+/* ===================== KernelSU 4.14 SELinux hide engine ================= */
+/*
+ * LKM-style SELinux hiding for the 4.14 builtin tree.
+ *
+ * The 5.10+ selinux_hide.c answers /sys/fs/selinux/{access,context} from a
+ * saved clean policydb (my_write_access/my_write_context).  4.14 has no
+ * struct selinux_policy, so the same semantics are implemented here:
+ * KernelSU snapshots the pristine policydb right before it patches the live
+ * policy, and user queries are evaluated against that snapshot.
+ */
+#ifdef CONFIG_KSU
+#include <linux/cred.h>
+#include <linux/compiler.h>
+#include "../ksu_selinux_hide.h"
+
+struct ksu_clean_policy {
+	struct policydb policydb;
+	struct sidtab *sidtab;
+};
+
+static struct ksu_clean_policy *ksu_clean_policy;
+static void *ksu_clean_blob;
+static size_t ksu_clean_blob_len;
+static DEFINE_MUTEX(ksu_clean_policy_lock);
+
+bool ksu_selinux_hide_policy_ready(void)
+{
+	return READ_ONCE(ksu_clean_policy) != NULL;
+}
+
+bool ksu_selinux_hide_active(void)
+{
+	if (!READ_ONCE(ksu_selinux_hide_enabled))
+		return false;
+	if (__kuid_val(current_uid()) < 10000)
+		return false;
+	if (!ksu_selinux_hide_policy_ready()) {
+		pr_info_ratelimited("ksu_selinux_hide: clean policy not ready (uid=%d)\n",
+				    __kuid_val(current_uid()));
+		return false;
+	}
+	return true;
+}
+
+int ksu_selinux_hide_capture_clean_policy(void)
+{
+	struct ksu_clean_policy *cp;
+	struct sidtab *sidtab;
+	struct policy_file file;
+	void *data = NULL;
+	size_t len;
+	int rc;
+
+	mutex_lock(&ksu_clean_policy_lock);
+	if (ksu_clean_policy) {
+		mutex_unlock(&ksu_clean_policy_lock);
+		return 0;
+	}
+	if (!selinux_state.initialized) {
+		pr_err("ksu_selinux_hide: capture deferred, policy not initialized\n");
+		mutex_unlock(&ksu_clean_policy_lock);
+		return -EAGAIN;
+	}
+
+	len = security_policydb_len(&selinux_state);
+	if (!len) {
+		pr_err("ksu_selinux_hide: security_policydb_len returned 0\n");
+		mutex_unlock(&ksu_clean_policy_lock);
+		return -EINVAL;
+	}
+	data = vmalloc(len);
+	if (!data) {
+		pr_err("ksu_selinux_hide: vmalloc(%zu) failed\n", len);
+		mutex_unlock(&ksu_clean_policy_lock);
+		return -ENOMEM;
+	}
+
+	file.data = data;
+	file.len = len;
+	read_lock(&selinux_state.ss->policy_rwlock);
+	rc = policydb_write(&selinux_state.ss->policydb, &file);
+	read_unlock(&selinux_state.ss->policy_rwlock);
+	if (rc) {
+		pr_err("ksu_selinux_hide: policydb_write failed: %d\n", rc);
+		goto out_free;
+	}
+	len = (size_t)(file.data - (char *)data);
+
+	cp = kzalloc(sizeof(*cp), GFP_KERNEL);
+	if (!cp) {
+		rc = -ENOMEM;
+		goto out_free;
+	}
+
+	file.data = data;
+	file.len = len;
+	rc = policydb_read(&cp->policydb, &file);
+	if (rc) {
+		pr_err("ksu_selinux_hide: policydb_read failed: %d (len=%zu)\n", rc, len);
+		kfree(cp);
+		goto out_free;
+	}
+	cp->policydb.len = len;
+
+	sidtab = kzalloc(sizeof(*sidtab), GFP_KERNEL);
+	if (!sidtab) {
+		policydb_destroy(&cp->policydb);
+		kfree(cp);
+		rc = -ENOMEM;
+		goto out_free;
+	}
+	sidtab_init(sidtab);
+	rc = policydb_load_isids(&cp->policydb, sidtab);
+	if (rc) {
+		pr_err("ksu_selinux_hide: policydb_load_isids failed: %d\n", rc);
+		kfree(sidtab);
+		policydb_destroy(&cp->policydb);
+		kfree(cp);
+		goto out_free;
+	}
+
+	cp->sidtab = sidtab;
+	WRITE_ONCE(ksu_clean_policy, cp);
+	WRITE_ONCE(ksu_clean_blob, data);
+	WRITE_ONCE(ksu_clean_blob_len, len);
+	data = NULL;
+	pr_info("ksu_selinux_hide: captured clean policy (%zu bytes)\n", len);
+	rc = 0;
+
+out_free:
+	vfree(data);
+	mutex_unlock(&ksu_clean_policy_lock);
+	return rc;
+}
+
+int ksu_selinux_hide_policy_blob(void **data, size_t *len)
+{
+	if (!READ_ONCE(ksu_clean_policy) || !READ_ONCE(ksu_clean_blob))
+		return -ENOENT;
+	*data = READ_ONCE(ksu_clean_blob);
+	*len = READ_ONCE(ksu_clean_blob_len);
+	return 0;
+}
+
+int ksu_selinux_hide_context_to_sid(const char *scontext, u32 scontext_len, u32 *sid)
+{
+	struct ksu_clean_policy *cp = READ_ONCE(ksu_clean_policy);
+	struct context ctx;
+	char *s;
+	int rc;
+
+	if (!cp)
+		return -ENOENT;
+	if (!scontext_len)
+		return -EINVAL;
+
+	s = kmalloc(scontext_len + 1, GFP_KERNEL);
+	if (!s)
+		return -ENOMEM;
+	memcpy(s, scontext, scontext_len);
+	s[scontext_len] = '\0';
+
+	rc = string_to_context_struct(&cp->policydb, cp->sidtab, s, &ctx, SECSID_NULL);
+	kfree(s);
+	if (rc)
+		return rc;
+
+	if (!ctx.hash) {
+		rc = context_add_hash(&cp->policydb, &ctx);
+		if (rc) {
+			context_destroy(&ctx);
+			return rc;
+		}
+	}
+
+	rc = sidtab_context_to_sid(cp->sidtab, &ctx, sid);
+	context_destroy(&ctx);
+	return rc;
+}
+
+int ksu_selinux_hide_sid_to_context(u32 sid, char *buf, u32 size)
+{
+	struct ksu_clean_policy *cp = READ_ONCE(ksu_clean_policy);
+	struct context *ctx;
+	char *scontext = NULL;
+	u32 slen = 0;
+	int rc;
+
+	if (!cp)
+		return -ENOENT;
+	ctx = sidtab_search(cp->sidtab, sid);
+	if (!ctx)
+		return -EINVAL;
+
+	rc = context_struct_to_string(&cp->policydb, ctx, &scontext, &slen);
+	if (rc)
+		return rc;
+	if (slen > size) {
+		kfree(scontext);
+		return -ERANGE;
+	}
+	memcpy(buf, scontext, slen);
+	kfree(scontext);
+	return (int)slen;
+}
+
+void ksu_selinux_hide_compute_av(u32 ssid, u32 tsid, u16 tclass,
+				 struct av_decision *avd)
+{
+	struct ksu_clean_policy *cp = READ_ONCE(ksu_clean_policy);
+	struct context *scontext, *tcontext;
+
+	avd->allowed = 0;
+	avd->auditallow = 0;
+	avd->auditdeny = 0xffffffff;
+	avd->flags = 0;
+	avd->seqno = 1;		/* stock reads 1; the clean snapshot is static */
+
+	if (!cp)
+		return;
+
+	scontext = sidtab_search(cp->sidtab, ssid);
+	if (!scontext)
+		return;
+	if (ebitmap_get_bit(&cp->policydb.permissive_map, scontext->type))
+		avd->flags |= AVD_FLAGS_PERMISSIVE;
+
+	tcontext = sidtab_search(cp->sidtab, tsid);
+	if (!tcontext)
+		return;
+
+	if (!tclass) {
+		if (cp->policydb.allow_unknown)
+			avd->allowed = 0xffffffff;
+		return;
+	}
+
+	context_struct_compute_av(&cp->policydb, scontext, tcontext, tclass, avd, NULL);
+}
+#endif /* CONFIG_KSU */

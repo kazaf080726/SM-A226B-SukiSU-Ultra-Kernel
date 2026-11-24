@@ -4,7 +4,6 @@
 #
 
 obj-$(CONFIG_SECURITY_SELINUX) := selinux.o
-obj-$(CONFIG_SECURITY_SELINUX_HOOK_KPM) += selinux_hook_kpm/
 
 selinux-y := avc.o hooks.o selinuxfs.o netlink.o nlmsgtab.o netif.o \
 	     netnode.o netport.o ibpkey.o exports.o \
@@ -14,7 +13,6 @@ selinux-y := avc.o hooks.o selinuxfs.o netlink.o nlmsgtab.o netif.o \
 selinux-$(CONFIG_SECURITY_NETWORK_XFRM) += xfrm.o
 
 selinux-$(CONFIG_NETLABEL) += netlabel.o
-selinux-$(CONFIG_SECURITY_SELINUX_QUERY_FILTER) += selinux_query_filter.o
 
 ccflags-y := -I$(srctree)/security/selinux -I$(srctree)/security/selinux/include
 

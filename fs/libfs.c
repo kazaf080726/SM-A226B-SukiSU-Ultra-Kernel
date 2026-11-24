@@ -5,7 +5,6 @@
 
 #include <linux/blkdev.h>
 #include <linux/export.h>
-#include <linux/selinux_hook_kpm.h>
 #include <linux/pagemap.h>
 #include <linux/slab.h>
 #include <linux/cred.h>
@@ -626,34 +625,7 @@ EXPORT_SYMBOL(simple_release_fs);
  * On success, the number of bytes read is returned and the offset @ppos is
  * advanced by this number, or negative value is returned on error.
  **/
-static ssize_t __kp_simple_read_from_buffer(void __user *to, size_t count,
-					    loff_t *ppos, const void *from,
-					    size_t available);
-ssize_t simple_read_from_buffer(void __user *to, size_t count, loff_t *ppos,
-				const void *from, size_t available)
-{
-	hook_fargs8_t a;
-	ssize_t ret;
-
-	memset(&a, 0, sizeof(a));
-	a.arg0 = (uint64_t)to;
-	a.arg1 = (uint64_t)count;
-	a.arg2 = (uint64_t)ppos;
-	a.arg3 = (uint64_t)from;
-	a.arg4 = (uint64_t)available;
-	kp_hook_before((void *)simple_read_from_buffer, &a);
-	if (a.skip_origin)
-		return (ssize_t)a.ret;
-	ret = __kp_simple_read_from_buffer((void __user *)a.arg0,
-					   (size_t)a.arg1, (loff_t *)a.arg2,
-					   (const void *)a.arg3,
-					   (size_t)a.arg4);
-	a.ret = (uint64_t)ret;
-	kp_hook_after((void *)simple_read_from_buffer, &a);
-	return (ssize_t)a.ret;
-}
-
-static ssize_t __kp_simple_read_from_buffer(void __user *to, size_t count,
+ssize_t simple_read_from_buffer(void __user *to, size_t count,
 					    loff_t *ppos, const void *from,
 					    size_t available)
 {

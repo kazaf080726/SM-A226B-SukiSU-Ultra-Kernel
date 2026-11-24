@@ -58,8 +58,6 @@ for c in \
     CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS \
     CONFIG_KSU_SUSFS_PRIORITY_UID_FILTER \
     CONFIG_NOMOUNT \
-    CONFIG_SECURITY_SELINUX_QUERY_FILTER \
-    CONFIG_SECURITY_SELINUX_HOOK_KPM \
     CONFIG_KALLSYMS_ALL
 do
     if grep -qx "${c}=y" "$CONFIG"; then ok "$c"; else bad "$c is not =y"; fi
@@ -87,31 +85,35 @@ done
 if has_str 'NoMount: Loaded successfully'; then ok "NoMount init string"; else bad "NoMount init string missing"; fi
 
 echo
-echo "=== 5. selinux_hook / KPM engine ==="
+echo "=== 5. SELinux hide engine (LKM-style, 4.14) ==="
 for s in \
-    hook_wrap kp_hook_before kp_hook_after kp_hook_find kp_hooks \
-    snapshot_clean_policy try_load_clean_policydb_from_blob \
-    selinux_hook_kpm_builtin_init dirtysepolicy_access_should_deny
+    ksu_selinux_hide_capture_clean_policy ksu_selinux_hide_policy_ready \
+    ksu_selinux_hide_active ksu_selinux_hide_context_to_sid \
+    ksu_selinux_hide_sid_to_context ksu_selinux_hide_compute_av \
+    ksu_selinux_hide_status_page
 do
     if has_sym "$s"; then ok "symbol $s"; else bad "missing symbol $s"; fi
 done
-if has_str '[selinux_hook]'; then ok "selinux_hook log strings"; else bad "selinux_hook log strings missing"; fi
+if has_str 'ksu_selinux_hide: captured clean policy'; then ok "clean policy capture string"; else bad "clean policy capture string missing"; fi
+for s in hook_wrap kp_hook_before kp_hook_after selinux_hook_kpm_builtin_init; do
+    if has_sym "$s"; then bad "legacy KPM still compiled: $s"; else ok "legacy KPM removed: $s"; fi
+done
 
 echo
-echo "=== 6. 12 wired hook targets ==="
+echo "=== 6. SELinux entry points present ==="
 for s in \
-    sel_write_access sel_write_context sel_read_handle_status sel_mmap_handle_status \
+    ksu_sel_write_access ksu_sel_write_context sel_open_handle_status \
     security_read_policy simple_read_from_buffer selinux_complete_init \
     selinux_setprocattr security_setprocattr selinux_status_update_policyload \
-    context_struct_compute_av string_to_context_struct
+    context_struct_compute_av string_to_context_struct policydb_read
 do
-    if has_sym "$s"; then ok "hook target $s"; else bad "hook target $s not compiled"; fi
+    if has_sym "$s"; then ok "symbol $s"; else bad "symbol $s not compiled"; fi
 done
 
 echo
-echo "=== 7. native SELinux filter (v4 layer) ==="
+echo "=== 7. legacy native query filter removed ==="
 for s in selinux_query_filter_access selinux_query_filter_context selinux_query_filter_setprocattr; do
-    if has_sym "$s"; then ok "symbol $s"; else bad "missing symbol $s"; fi
+    if has_sym "$s"; then bad "legacy filter still present: $s"; else ok "legacy filter removed: $s"; fi
 done
 
 echo
@@ -122,8 +124,11 @@ kpimg=$(grep -icE 'kpimg|KernelPatch' "$IMG_LIST" || true)
 oldfp=$(grep -cF '0 0 0 0 1 0' "$IMG_LIST" || true)
 [ "$oldfp" -eq 0 ] && ok "old /access fingerprint absent" || bad "old /access fingerprint present ($oldfp)"
 
-newfp=$(grep -cF '0 ffffffff 0 ffffffff 1 0' "$IMG_LIST" || true)
-[ "$newfp" -ge 1 ] && ok "realistic /access reply present" || bad "realistic /access reply missing"
+if has_sym ksu_selinux_hide_compute_av; then
+    ok "LKM-style clean-policy reply engine present"
+else
+    bad "clean-policy reply engine missing"
+fi
 
 echo
 echo "=== 9. PathMask LKMs ==="

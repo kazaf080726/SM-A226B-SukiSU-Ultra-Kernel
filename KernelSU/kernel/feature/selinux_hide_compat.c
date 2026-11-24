@@ -37,9 +37,9 @@ static int selinux_hide_feature_set(u64 value)
     bool enable = value != 0;
 
     ksu_selinux_hide_enabled = enable;
-    /* The KPM backend is loaded/unloaded by userspace at next boot. */
+    /* The in-tree engine is already armed; nothing to load from userspace. */
     ksu_selinux_hide_running = enable;
-    pr_info("selinux_hide(4.14): set to %d (selinux_hook KPM backend)\n", enable);
+    pr_info("selinux_hide(4.14): set to %d (in-tree LKM-style engine)\n", enable);
     return 0;
 }
 
@@ -117,3 +117,4 @@ struct page *ksu_selinux_hide_status_page(void)
 
 	return READ_ONCE(ksu_hide_fake_status);
 }
+

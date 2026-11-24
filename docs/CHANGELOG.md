@@ -1,5 +1,50 @@
 # 更新记录 / Changelog
 
+## V28 — 2026-11-24
+
+**主题：移除 KPM 垫片，用 LKM（main 分支）同款逻辑在 4.14 内核内实现 SELinux 深度隐藏**
+
+V27 的"通过"是假象：Maple 的 oracle 在 carrier 10s 绑定超时时会短暂"干净"，
+但真实探针仍然把设备识别为 Root。V28 按 LKM 实现重做：
+
+### 移除
+- 删除 `security/selinux/selinux_hook_kpm/`（KPM 热补丁 shim，10 文件 4.7k 行）、
+  `include/linux/selinux_hook_kpm.h`、`security/selinux/selinux_query_filter.{c,h}`；
+- 还原被 KPM 内联补丁改写的 12 个内核函数（selinuxfs/services/status/hooks/
+  security/libfs），去掉 `__kp_*` 包装与 `CONFIG_SECURITY_SELINUX_HOOK_KPM/
+  QUERY_FILTER` 配置；
+- `status.c` 保持三星原厂 0/0 行为 + App 视角假状态页（V27 语义，保留）。
+
+### 新增（LKM 语义，4.14 内建）
+- `security/selinux/ksu_selinux_hide.h` + `ss/services.c` 引擎：
+  - `ksu_selinux_hide_capture_clean_policy()`：在 KernelSU 改写 live policy **之前**
+    （`apply_kernelsu_rules()` 入口）序列化原厂 policydb，独立解析出
+    `ksu_clean_policy{policydb, sidtab}` 与原始 policy blob；
+  - `ksu_selinux_hide_context_to_sid/sid_to_context/compute_av()`：完全在 clean
+    policydb 上解析上下文、计算 avd（`seqno=1`），等价 main 分支
+    `my_write_context/my_write_access`；
+- `selinuxfs.c`：编译期把 `write_op[SEL_ACCESS/SEL_CONTEXT]` 换成
+  `ksu_sel_write_access/ksu_sel_write_context`；App（uid≥10000）读
+  `/sys/fs/selinux/policy` 时返回 clean blob（mmap/read 同源）；
+- `hooks.c`：`selinux_setprocattr()` 对 App 写 `/proc/self/attr/current` 的
+  隐藏上下文返回 **-EINVAL**（clean policydb 中不存在该类型，等价 LKM
+  `my_setprocattr` 的解析失败语义）。
+
+### 关键取证（Maple 进程堆 + 内核查询环）
+- carrier 探针写 `/proc/self/attr/current` 得到 `EPERM(1)` 会被 DirtySepolicy 记为
+  `INCONCLUSIVE` → "SELinux策略访问异常"；改成 **EINVAL(22)** 后即为
+  `NORMAL_EINVAL`。
+- 此前 KSU/Magisk/LSPosed 类型被识别，是因为 live 策略与 `su` 等三星原厂类型
+  直接暴露在 policy/context 查询里；clean policydb 应答后全部 `EINVAL`。
+
+### 实测（最终干净版，设备已刷入）
+- Maple Ultra 2.8.2：**完美！ALL CLEAR，282/282 项完美，0 危险 / 0 可疑**（34.8s）；
+- Hunter 6.72：**未发现风险，您的设备未发现问题！**（108 项，高风险 0 / 未评估 4 /
+  不可用 0 / 超时 0）；
+- `dmesg`：`ksu_selinux_hide: captured clean policy (1522149 bytes)`；
+- `/sys/fs/selinux/status`：root=真实页、App=`1 0 1 0 1`；
+- 无 `/proc/ksu_hide` 等诊断节点（干净版已移除调试埋点）。
+
 ## V27 — 2026-11-24
 
 **主题：消除 Maple/DuckDetector 的“SELinux 策略兼容/查询服务异常”（应急方案一）**

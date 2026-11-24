@@ -5,6 +5,8 @@ struct selinux_policy *backup_sepolicy;
 
 #define ALL NULL
 
+#include <ksu_selinux_hide.h>
+
 #if ((!defined(KSU_COMPAT_USE_SELINUX_STATE)) || LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0))
 extern int avc_ss_reset(u32 seqno);
 #else
@@ -151,6 +153,13 @@ static int apply_kernelsu_rules_fn(void *ptr)
 
 void apply_kernelsu_rules(void)
 {
+    /* Snapshot the pristine policydb before patching it for the hide engine. */
+    {
+        int hide_rc = ksu_selinux_hide_capture_clean_policy();
+        if (hide_rc)
+            pr_err("ksu_selinux_hide: clean policy capture rc=%d\n", hide_rc);
+    }
+
     struct selinux_policy *pol, *old_pol;
     struct policydb *db;
 

@@ -36,13 +36,14 @@
    Based on the proc code and the fs/nfsd/nfsctl.c code. */
 
 #include "flask.h"
-#include <linux/selinux_hook_kpm.h>
-#include "selinux_query_filter.h"
 #include "avc.h"
 #include "avc_ss.h"
 #include "security.h"
 #include "objsec.h"
 #include "conditional.h"
+
+#include "ksu_selinux_hide.h"
+
 
 enum sel_inos {
 	SEL_ROOT_INO = 2,
@@ -249,32 +250,10 @@ static int sel_open_handle_status(struct inode *inode, struct file *filp)
 	return 0;
 }
 
-static ssize_t __kp_sel_read_handle_status(struct file *filp,
+static ssize_t sel_read_handle_status(struct file *filp,
 					   char __user *buf, size_t count,
 					   loff_t *ppos);
 static ssize_t sel_read_handle_status(struct file *filp, char __user *buf,
-				      size_t count, loff_t *ppos)
-{
-	hook_fargs4_t a;
-	ssize_t ret;
-
-	memset(&a, 0, sizeof(a));
-	a.arg0 = (uint64_t)filp;
-	a.arg1 = (uint64_t)buf;
-	a.arg2 = (uint64_t)count;
-	a.arg3 = (uint64_t)ppos;
-	kp_hook_before((void *)sel_read_handle_status, &a);
-	if (a.skip_origin)
-		return (ssize_t)a.ret;
-	ret = __kp_sel_read_handle_status((struct file *)a.arg0,
-					  (char __user *)a.arg1,
-					  (size_t)a.arg2, (loff_t *)a.arg3);
-	a.ret = (uint64_t)ret;
-	kp_hook_after((void *)sel_read_handle_status, &a);
-	return (ssize_t)a.ret;
-}
-
-static ssize_t __kp_sel_read_handle_status(struct file *filp, char __user *buf,
 					   size_t count, loff_t *ppos)
 {
 	struct page    *status = filp->private_data;
@@ -286,28 +265,9 @@ static ssize_t __kp_sel_read_handle_status(struct file *filp, char __user *buf,
 				       sizeof(struct selinux_kernel_status));
 }
 
-static int __kp_sel_mmap_handle_status(struct file *filp,
+static int sel_mmap_handle_status(struct file *filp,
 				       struct vm_area_struct *vma);
 static int sel_mmap_handle_status(struct file *filp,
-				  struct vm_area_struct *vma)
-{
-	hook_fargs4_t a;
-	int ret;
-
-	memset(&a, 0, sizeof(a));
-	a.arg0 = (uint64_t)filp;
-	a.arg1 = (uint64_t)vma;
-	kp_hook_before((void *)sel_mmap_handle_status, &a);
-	if (a.skip_origin)
-		return (int)a.ret;
-	ret = __kp_sel_mmap_handle_status((struct file *)a.arg0,
-					  (struct vm_area_struct *)a.arg1);
-	a.ret = (uint64_t)ret;
-	kp_hook_after((void *)sel_mmap_handle_status, &a);
-	return (int)a.ret;
-}
-
-static int __kp_sel_mmap_handle_status(struct file *filp,
 				       struct vm_area_struct *vma)
 {
 	struct page    *status = filp->private_data;
@@ -429,6 +389,7 @@ static const struct file_operations sel_mls_ops = {
 struct policy_load_memory {
 	size_t len;
 	void *data;
+	bool ksu_shared;
 };
 
 static int sel_open_policy(struct inode *inode, struct file *filp)
@@ -463,6 +424,28 @@ static int sel_open_policy(struct inode *inode, struct file *filp)
 		inode_unlock(inode);
 	}
 
+#ifdef CONFIG_KSU
+	if (ksu_selinux_hide_active()) {
+		void *blob;
+		size_t blen;
+
+		if (!ksu_selinux_hide_policy_blob(&blob, &blen)) {
+			plm->data = blob;
+			plm->len = blen;
+			plm->ksu_shared = true;
+			if (i_size_read(inode) != blen) {
+				inode_lock(inode);
+				i_size_write(inode, blen);
+				inode_unlock(inode);
+			}
+			fsi->policy_opened = 1;
+			filp->private_data = plm;
+			mutex_unlock(&fsi->mutex);
+			return 0;
+		}
+	}
+#endif
+
 	rc = security_read_policy(state, &plm->data, &plm->len);
 	if (rc)
 		goto err;
@@ -477,7 +460,7 @@ static int sel_open_policy(struct inode *inode, struct file *filp)
 err:
 	mutex_unlock(&fsi->mutex);
 
-	if (plm)
+	if (plm && plm->data && !plm->ksu_shared)
 		vfree(plm->data);
 	kfree(plm);
 	return rc;
@@ -492,7 +475,8 @@ static int sel_release_policy(struct inode *inode, struct file *filp)
 
 	fsi->policy_opened = 0;
 
-	vfree(plm->data);
+	if (!plm->ksu_shared)
+		vfree(plm->data);
 	kfree(plm);
 
 	return 0;
@@ -656,38 +640,14 @@ static const struct file_operations sel_load_ops = {
 	.llseek		= generic_file_llseek,
 };
 
-static ssize_t __kp_sel_write_context(struct file *file, char *buf, size_t size);
+static ssize_t sel_write_context(struct file *file, char *buf, size_t size);
 static ssize_t sel_write_context(struct file *file, char *buf, size_t size)
-{
-	hook_fargs4_t a;
-	ssize_t ret;
-
-	memset(&a, 0, sizeof(a));
-	a.arg0 = (uint64_t)file;
-	a.arg1 = (uint64_t)buf;
-	a.arg2 = (uint64_t)size;
-	kp_hook_before((void *)sel_write_context, &a);
-	if (a.skip_origin)
-		return (ssize_t)a.ret;
-	ret = __kp_sel_write_context((struct file *)a.arg0, (char *)a.arg1,
-				     (size_t)a.arg2);
-	a.ret = (uint64_t)ret;
-	kp_hook_after((void *)sel_write_context, &a);
-	return (ssize_t)a.ret;
-}
-
-static ssize_t __kp_sel_write_context(struct file *file, char *buf, size_t size)
 {
 	struct selinux_fs_info *fsi = file_inode(file)->i_sb->s_fs_info;
 	struct selinux_state *state = fsi->state;
 	char *canon = NULL;
 	u32 sid, len;
 	ssize_t length;
-
-#ifdef CONFIG_SECURITY_SELINUX_QUERY_FILTER
-	if (selinux_query_filter_context(buf, size))
-		return -EINVAL;
-#endif
 
 	length = avc_has_perm(&selinux_state,
 			      current_sid(), SECINITSID_SECURITY,
@@ -852,38 +812,103 @@ static const struct file_operations sel_transition_ops = {
 /*
  * Remaining nodes use transaction based IO methods like nfsd/nfsctl.c
  */
-static ssize_t __kp_sel_write_access(struct file *file, char *buf, size_t size);
+static ssize_t sel_write_access(struct file *file, char *buf, size_t size);
 
-static ssize_t sel_write_access(struct file *file, char *buf, size_t size)
-{
-	hook_fargs4_t a;
-	ssize_t ret;
-
-	memset(&a, 0, sizeof(a));
-	a.arg0 = (uint64_t)file;
-	a.arg1 = (uint64_t)buf;
-	a.arg2 = (uint64_t)size;
-	kp_hook_before((void *)sel_write_access, &a);
-	if (a.skip_origin)
-		return (ssize_t)a.ret;
-	ret = __kp_sel_write_access((struct file *)a.arg0, (char *)a.arg1,
-				    (size_t)a.arg2);
-	a.ret = (uint64_t)ret;
-	kp_hook_after((void *)sel_write_access, &a);
-	return (ssize_t)a.ret;
-}
 static ssize_t sel_write_create(struct file *file, char *buf, size_t size);
 static ssize_t sel_write_relabel(struct file *file, char *buf, size_t size);
 static ssize_t sel_write_user(struct file *file, char *buf, size_t size);
 static ssize_t sel_write_member(struct file *file, char *buf, size_t size);
 
+
+#ifdef CONFIG_KSU
+
+/*
+ * LKM-style answers: evaluate the query against the clean policydb snapshot
+ * instead of letting the live (KernelSU-patched) policy produce the result.
+ * Falls back to the stock handler for root, policy managers and app processes
+ * while the feature is off.
+ */
+static ssize_t ksu_sel_write_access(struct file *file, char *buf, size_t size)
+{
+	char *scon = NULL, *tcon = NULL;
+	u32 ssid, tsid;
+	u16 tclass;
+	struct av_decision avd;
+	ssize_t length;
+
+	if (!ksu_selinux_hide_active())
+		return sel_write_access(file, buf, size);
+
+	length = avc_has_perm(&selinux_state, current_sid(),
+			      SECINITSID_SECURITY, SECCLASS_SECURITY,
+			      SECURITY__COMPUTE_AV, NULL);
+	if (length)
+		return length;
+
+	length = -ENOMEM;
+	scon = kzalloc(size + 1, GFP_KERNEL);
+	if (!scon)
+		goto out;
+	tcon = kzalloc(size + 1, GFP_KERNEL);
+	if (!tcon)
+		goto out;
+
+	length = -EINVAL;
+	if (sscanf(buf, "%s %s %hu", scon, tcon, &tclass) != 3)
+		goto out;
+
+	length = ksu_selinux_hide_context_to_sid(scon, strlen(scon), &ssid);
+	if (length)
+		goto out;
+	length = ksu_selinux_hide_context_to_sid(tcon, strlen(tcon), &tsid);
+	if (length)
+		goto out;
+
+	ksu_selinux_hide_compute_av(ssid, tsid, tclass, &avd);
+
+	length = scnprintf(buf, SIMPLE_TRANSACTION_LIMIT,
+			   "%x %x %x %x %u %x", avd.allowed, 0xffffffff,
+			   avd.auditallow, avd.auditdeny, avd.seqno, avd.flags);
+out:
+	kfree(tcon);
+	kfree(scon);
+	return length;
+}
+
+static ssize_t ksu_sel_write_context(struct file *file, char *buf, size_t size)
+{
+	u32 sid;
+	ssize_t length;
+
+	if (!ksu_selinux_hide_active())
+		return sel_write_context(file, buf, size);
+
+	length = avc_has_perm(&selinux_state, current_sid(),
+			      SECINITSID_SECURITY, SECCLASS_SECURITY,
+			      SECURITY__CHECK_CONTEXT, NULL);
+	if (length)
+		return length;
+
+	length = ksu_selinux_hide_context_to_sid(buf, size, &sid);
+	if (length)
+		return length;
+
+	return ksu_selinux_hide_sid_to_context(sid, buf, SIMPLE_TRANSACTION_LIMIT);
+}
+#endif /* CONFIG_KSU */
+
 static ssize_t (*write_op[])(struct file *, char *, size_t) = {
+#ifdef CONFIG_KSU
+	[SEL_ACCESS] = ksu_sel_write_access,
+	[SEL_CONTEXT] = ksu_sel_write_context,
+#else
 	[SEL_ACCESS] = sel_write_access,
+	[SEL_CONTEXT] = sel_write_context,
+#endif
 	[SEL_CREATE] = sel_write_create,
 	[SEL_RELABEL] = sel_write_relabel,
 	[SEL_USER] = sel_write_user,
 	[SEL_MEMBER] = sel_write_member,
-	[SEL_CONTEXT] = sel_write_context,
 };
 
 static ssize_t selinux_transaction_write(struct file *file, const char __user *buf, size_t size, loff_t *pos)
@@ -920,7 +945,7 @@ static const struct file_operations transaction_ops = {
  * and the length returned.  Otherwise return 0 or and -error.
  */
 
-static ssize_t __kp_sel_write_access(struct file *file, char *buf, size_t size)
+static ssize_t sel_write_access(struct file *file, char *buf, size_t size)
 {
 	struct selinux_fs_info *fsi = file_inode(file)->i_sb->s_fs_info;
 	struct selinux_state *state = fsi->state;
