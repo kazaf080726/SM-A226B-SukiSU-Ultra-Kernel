@@ -1,5 +1,7 @@
 # 功能清单 / Feature inventory
 
+> 中文 | [English](FEATURES.en.md)
+
 本文件说明这个内核改了什么、每个功能落在哪里、怎么验证。
 基线：三星官方 `SM-A226B_13_Opensource`（Linux 4.14.186，MT6833 / a22x）。
 

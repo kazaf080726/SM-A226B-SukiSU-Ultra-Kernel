@@ -1,5 +1,7 @@
 # V28 发布说明 — 重大更新（Major Update）
 
+> 中文 | [English](RELEASE-v28.en.md)
+
 **日期：** 2026-11-24  
 **内核：** Linux 4.14.186（Samsung SM-A226B / A22 5G）  
 **Root：** SukiSU-Nova builtin · KSU_VERSION 35081  

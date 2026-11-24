@@ -1,5 +1,7 @@
 # 构建与可复现性 / Build & reproducibility
 
+> 中文 | [English](BUILD.en.md)
+
 本仓库已**内置** SukiSU（`KernelSU/`）与 NoMount（`NoMount/`）源码，
 不需要再 clone 子项目；`drivers/kernelsu` 与 `fs/nomount` 是符号链接。
 

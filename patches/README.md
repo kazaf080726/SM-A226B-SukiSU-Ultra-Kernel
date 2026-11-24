@@ -1,20 +1,23 @@
 # 集成改动说明 / Integration notes
 
+> 中文（默认） | [English](README.en.md)
+
 本仓库基于三星官方开源包 `SM-A226B_13_Opensource` 中的 `Kernel.tar.gz`
 （Linux 4.14.186，MT6833，a22x_defconfig）。
 
 相对原厂源码的改动分为三部分：
 
-## 0. 现状（V13）
+## 0. 现状（V28）
 
-本目录记录的是**历史移植来源**；当前仓库实际组件版本以 defconfig 与 `docs/ARCHITECTURE-V12.md` 为准：
+本目录记录的是**历史移植来源**；当前仓库实际组件版本以 defconfig 与
+`docs/ARCHITECTURE-V12.md`（及英文版）为准：
 
 | 组件 | 当前版本 |
 |---|---|
-| SukiSU-Ultra | builtin 分支，KSU_VERSION 41183（编译期计算） |
+| SukiSU-Nova | builtin 分支，KSU_VERSION 35081（构建期覆盖，对齐管理器） |
 | SUSFS | v2.4.0（10 个 feature 全开） |
-| NoMount | v2.3.0（NOMOUNT_BASE_VERSION 23） |
-| selinux_hook | 1.1.7（编入内核，非 .kpm） |
+| NoMount | v2.3.1（NOMOUNT_BASE_VERSION 23） |
+| SELinux 隐藏 | V28 内建 LKM 同源引擎（clean policydb 快照/自答查询；无 KPM/selinux_hook） |
 | PathMask | 4.14 移植（LKM） |
 
 ## 1. SUSFS（4.14 Non-GKI 移植，基线补丁 v2.3.0，现为 v2.4.0）
@@ -52,7 +55,7 @@ fs/namespace.c）的拒绝 hunk 做了 4.14.186 适配。
 - fs/proc/task_mmu.c：void 函数中的 `return 0` 改为 `return`
 - fs/notify/fdinfo.c：`mask` 声明移到函数开头（C 语言 label 后不能跟声明）
 
-## 3. NoMount v2.3.0
+## 3. NoMount v2.3.1
 
 使用上游 `kernel/setup.sh` 集成：`fs/nomount -> ../NoMount/kernel/src`，
 并在 `fs/Kconfig`、`fs/Makefile` 中加入 `CONFIG_NOMOUNT`。
@@ -78,7 +81,11 @@ CONFIG_NOMOUNT=y
 
 ## 后续补齐
 
-- priority UID filter：**V12 起已启用**（`CONFIG_KSU_SUSFS_PRIORITY_UID_FILTER=y`，`susfs_is_priority_uid_filtered()` 接入 `getpriority/setpriority/ioprio`）；
-- SELinux 策略级 selinux_hide：4.14 无 `struct selinux_policy`，改由内置 selinux_hook clean-policy 引擎承担（`feature/selinux_hide_compat.c` 只提供 feature 开关）。
+- priority UID filter：**V12 起已启用**（`CONFIG_KSU_SUSFS_PRIORITY_UID_FILTER=y`，
+  `susfs_is_priority_uid_filtered()` 接入 `getpriority/setpriority/ioprio`）；
+- SELinux 策略级隐藏：V28 起由内建 LKM 同源引擎承担
+  （`security/selinux/ksu_selinux_hide.h` + `ss/services.c` + `selinuxfs.c` +
+  `hooks.c`）；`feature/selinux_hide_compat.c` 仅保留 feature 开关与 App 视角
+  fake status page。
 
 其余路径/挂载/stat/maps/uname/cmdline/open_redirect/avc 日志隐藏均已生效。

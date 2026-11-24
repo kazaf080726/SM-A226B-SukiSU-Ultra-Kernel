@@ -81,8 +81,8 @@
 ## 三、功能清单
 
 ### 3.1 SukiSU-Nova（`CONFIG_KSU`，原 SukiSU-Ultra）
-- `builtin` 分支（SukiSU-Nova），管理器 v3.0.0（versionCode 35000），APK 使用
-  `SukiSU_Nova_v3.0.0_35000-arm64-v8a-release.apk`；包名 `com.sukisu.nova`（旧 Ultra 包不再被识别）；
+- `builtin` 分支（SukiSU-Nova），管理器 v3.0.0（versionCode 35081），APK 使用
+  `SukiSU_Nova_v3.0.0_35081-arm64-v8a-release.apk`；包名 `com.sukisu.nova`（旧 Ultra 包不再被识别）；
 - 源码位于 `KernelSU/`，`drivers/kernelsu -> ../KernelSU/kernel`；
 - 4.14 兼容层：`static_call.h` 版本守卫、`ksu_kvcalloc`、
   `strncpy_from_user_nofault` 别名、KPM 扩展在 <5.10 编出等。
@@ -93,33 +93,40 @@
 - 已开启：SUS_PATH、SUS_MOUNT、SUS_KSTAT、SPOOF_UNAME、SPOOF_CMDLINE、
   OPEN_REDIRECT、SUS_MAP、HIDE_KSU_SUSFS_SYMBOLS、PRIORITY_UID_FILTER、ENABLE_LOG。
 
-### 3.3 NoMount v2.3.0（`CONFIG_NOMOUNT`）
+### 3.3 NoMount v2.3.1（`CONFIG_NOMOUNT`）
 - 源码位于 `NoMount/`，`fs/nomount -> ../NoMount/kernel/src`，内置驱动；
-- 2.3.0：inode 基准规则、预打开 backing file 缓存、O(1) revalidate、
+- 2.3.0/2.3.1：inode 基准规则、预打开 backing file 缓存、O(1) revalidate、
   readdir 并发修复、OOB/UAF 修复、xattr LSM 检查、跨 sb 代理 inode、启动提速。
 
 ### 3.4 PathMask 4.14
 - `pathmask/`：`pathmask.ko` + `procguard.ko`，KSU 模块 WebUI 配置隐藏路径/UID；
 - 与内核同一次构建，vermagic 匹配。
 
-### 3.5 SELinux 隐藏（selinux_hook 1.1.6.1 内置）
-- `security/selinux/selinux_hook_kpm/`：原 KPM 源码 + `hook_wrap` 注册表垫片；
-- `include/linux/selinux_hook_kpm.h`：`hook_fargsN_t` 参数块；
-- 12 个真实 hook 点：`sel_write_access`、`sel_write_context`、
-  `security_read_policy`、`simple_read_from_buffer`、`sel_read_handle_status`、
-  `sel_mmap_handle_status`、`selinux_status_update_policyload`、
-  `security_setprocattr`、`selinux_setprocattr`、`context_struct_compute_av`、
-  `string_to_context_struct`、`selinux_complete_init`；
-- 4.14 不存在的 `selinux_status_update_seqlock` / `selinux_policy_commit`
-  按源码 `if (addr)` 分支跳过（N/A，非删功能）。
+### 3.5 SELinux 隐藏（V28 内建 LKM 同源引擎）
+- V28 起 **KPM / selinux_hook 已整体移除**，改为与 LKM（main 分支）同源的 4.14 内建实现：
+  - `security/selinux/ksu_selinux_hide.h`：对外接口；
+  - `security/selinux/ss/services.c`：`ksu_selinux_hide_capture_clean_policy()` 在
+    KernelSU 改写 live policy **之前**序列化原厂 policydb，并独立解析出
+    `ksu_clean_policy{policydb, sidtab}` 与原始 policy blob；提供 clean 版
+    `context_to_sid / sid_to_context / compute_av(seqno=1)`；
+  - `security/selinux/selinuxfs.c`：`SEL_ACCESS/SEL_CONTEXT` 写节点由 clean 引擎应答；
+    App（uid≥10000）读 `/sys/fs/selinux/policy`（含 mmap）返回 clean blob；
+  - `security/selinux/hooks.c`：App 写 `/proc/self/attr/current` 的隐藏上下文返回
+    `-EINVAL`（等价 LKM `my_setprocattr` 的 clean-policy 解析失败语义）；
+  - `security/selinux/ss/status.c`：保持三星原厂 0/0 行为；App 视角返回 fake status
+    page（`version=1, sequence=0, enforcing=1, policyload=0, deny_unknown=1`）；
+  - `kernel/reboot.c`、`KernelSU/kernel/supercall/dispatch.c`：App 侧 reboot
+    supercall 与 stock 一致，root/ksud 路径保留。
 
 ### 3.6 反检测细节
-- **clean-policy 引擎**：启动时快照干净策略到独立 `policydb`，
-  `/sys/fs/selinux/policy` 返回 clean blob，AV 决策与 context 解析走 clean 数据；
-- **status 伪造**：`sequence=4`、`policyload=1`；
-- **`/access` 应答**：真内核形状 `0 ffffffff 0 ffffffff 1 0`，
-  不再使用旧 KPM 的 `0 0 0 0 1 0` 指纹；
-- **双层过滤**：KPM + v4 的 `security/selinux/selinux_query_filter.c`。
+- **clean-policy 引擎**：启动时快照干净策略到独立 `policydb`；隐藏域查询
+  （`access`/`context`/`policy`）全部由 clean 数据应答，隐藏类型返回 `EINVAL`；
+- **status 伪造**：App 视角 `1 0 1 0 1`（root/管理器读真实页）；
+- **策略 blob 隐藏**：App 读 `/sys/fs/selinux/policy` 或 mmap 均得到 clean blob；
+- **setprocattr 语义**：隐藏上下文写入返回 `-EINVAL`，与 DirtySepolicy 的
+  `NORMAL_EINVAL` 判据一致；
+- **supercall 隔离**：App（uid≥10000）的 reboot supercall 与 stock 不可区分，
+  避免 APatch/KernelSU 时序/特征检测。
 
 ---
 
@@ -129,11 +136,13 @@
 .
 ├── arch/arm64/configs/a22x_defconfig   # 默认配置
 ├── KernelSU/                           # SukiSU-Nova 源码（builtin）
-├── NoMount/                            # NoMount v2.3.0（内核 + 模块）
+├── NoMount/                            # NoMount v2.3.1（内核 + 模块）
 ├── pathmask/                           # PathMask 4.14 LKM 与 KSU 模块
-├── security/selinux/selinux_hook_kpm/  # selinux_hook 内置移植
-├── security/selinux/selinux_query_filter.c
-├── security/selinux/ss/status.c        # status 伪造
+├── security/selinux/ksu_selinux_hide.h # V28 内建 SELinux 隐藏引擎接口
+├── security/selinux/ss/services.c      # clean policydb 快照 + 应答引擎
+├── security/selinux/selinuxfs.c        # access/context/policy 包装
+├── security/selinux/hooks.c            # setprocattr 隐藏语义
+├── security/selinux/ss/status.c        # status 页（原厂值 + App fake page）
 ├── anykernel/                          # AnyKernel3 模板
 ├── ci/                                 # 构建/打包脚本
 ├── docs/                               # 构建、功能、变更、架构审计、仓库总览
@@ -196,7 +205,7 @@ bash ci/build.sh
 
 1. **先备份 boot**：TWRP → Backup → Boot；
 2. TWRP → Install → 刷 Release 里的 `A226B-...zip`；
-3. 重启，安装 **SukiSU-Nova v3.0.0** 管理器 APK（versionCode 35000，包名 `com.sukisu.nova`）；先卸载旧的 `com.sukisu.ultra`；
+3. 重启，安装 **SukiSU-Nova v3.0.0** 管理器 APK（versionCode 35081，包名 `com.sukisu.nova`）；先卸载旧的 `com.sukisu.ultra`；
 4. 需要路径隐藏时，再刷 `A226B-PathMask-4.14.zip` 并在 KSU 管理器里配置。
 
 > 机型无 `init_boot`；不要刷到 `boot` 以外的分区。
@@ -207,9 +216,9 @@ bash ci/build.sh
 
 ```bash
 # 编译期
-grep -E 'CONFIG_(KSU|NOMOUNT|SECURITY_SELINUX_HOOK_KPM)=' out/.config
-nm out/vmlinux | grep -E 'hook_wrap|snapshot_clean_policy|selinux_hook_kpm_builtin_init'
-strings out/arch/arm64/boot/Image | grep -icE 'kpimg|KernelPatch'   # 0
+grep -E 'CONFIG_(KSU|NOMOUNT)=' out/.config
+nm out/vmlinux | grep -E 'ksu_selinux_hide_capture_clean_policy|ksu_selinux_hide_compute_av'
+nm out/vmlinux | grep -E 'kp_hook_before|selinux_hook_kpm_builtin_init' && echo LEGACY || echo "KPM removed"
 
 # 全功能收尾检查（CI 同一脚本，65 项）
 bash ci/verify-features.sh
@@ -218,17 +227,39 @@ bash ci/verify-features.sh
 bash ci/verify-log.sh build.log
 
 # 设备端
-dmesg | grep -i selinux_hook
+dmesg | grep -i ksu_selinux_hide
 dmesg | grep -i nomount
 ```
 
 ---
 
-## 八、许可与致谢
+## 八、语言 / Translations
+
+文档提供中英双语（中文为主）：
+
+| 中文 | English |
+|---|---|
+| [README.md](README.md) | [README.en.md](README.en.md) |
+| [docs/CHANGELOG.md](docs/CHANGELOG.md) | [docs/CHANGELOG.en.md](docs/CHANGELOG.en.md) |
+| [docs/ARCHITECTURE-V12.md](docs/ARCHITECTURE-V12.md) | [docs/ARCHITECTURE-V12.en.md](docs/ARCHITECTURE-V12.en.md) |
+| [docs/REPO-MASTER.md](docs/REPO-MASTER.md) | [docs/REPO-MASTER.en.md](docs/REPO-MASTER.en.md) |
+| [docs/BUILD.md](docs/BUILD.md) | [docs/BUILD.en.md](docs/BUILD.en.md) |
+| [docs/FEATURES.md](docs/FEATURES.md) | [docs/FEATURES.en.md](docs/FEATURES.en.md) |
+| [docs/RELEASE-v28.md](docs/RELEASE-v28.md) | [docs/RELEASE-v28.en.md](docs/RELEASE-v28.en.md) |
+| [NOTICE.md](NOTICE.md) | [NOTICE.en.md](NOTICE.en.md) |
+| [pathmask/README.md](pathmask/README.md) | [pathmask/README.en.md](pathmask/README.en.md) |
+| [patches/README.md](patches/README.md) | [patches/README.en.md](patches/README.en.md) |
+
+GitHub Releases 页面同时包含中文与 English 说明；NoMount 模块 WebUI 自带
+`en.json`/`zh.json` 等多语言。
+
+---
+
+## 九、许可与致谢
 
 - Samsung 4.14.186 内核源码：GPL-2.0；
-- SukiSU-Ultra：GPL-2.0；SUSFS：GPL-2.0；NoMount：GPL-2.0；PathMask：GPL-2.0；
-  selinux_hook：GPL-2.0；AnyKernel3：见上游。
-- 详细第三方声明见 [NOTICE.md](NOTICE.md)。
+- SukiSU-Nova：GPL-2.0；SUSFS：GPL-2.0；NoMount：GPL-2.0；PathMask：GPL-2.0；
+  AnyKernel3：见上游。
+- 详细第三方声明见 [NOTICE.md](NOTICE.md) / [NOTICE.en.md](NOTICE.en.md)。
 
 本项目免费公开，不卖包、不设付费墙；刷机有风险，请自行承担。

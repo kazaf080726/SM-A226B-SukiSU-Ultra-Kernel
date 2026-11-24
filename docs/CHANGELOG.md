@@ -1,5 +1,7 @@
 # 更新记录 / Changelog
 
+> 中文 | [English](CHANGELOG.en.md)
+
 > ## ⬆ 重大更新（Major Update）：V28 — 2026-11-24
 > **移除 KPM 垫片，用 LKM（main 分支）同款逻辑在内核内实现 SELinux 深度隐藏。**
 > Maple Ultra：ALL CLEAR（SELinux 侧信道项彻底消失）；Hunter 6.72：未发现风险。

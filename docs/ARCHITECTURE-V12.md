@@ -1,5 +1,7 @@
 # SM-A226B V12 内核架构审计（只读全量 diff 版）
 
+> 中文 | [English](ARCHITECTURE-V12.en.md)
+
 - 审计对象：`/home/kazaf/a226b/gh-repo`，tag `v12` = commit `9877efbd4`
 - 基准：Samsung 官方 `SM-A226B_13_Opensource.zip` → `Kernel.tar.gz`（Linux 4.14.186，a22x，无 KernelSU）
 - 基准解压路径：`/home/kazaf/a226b/stock-v12`

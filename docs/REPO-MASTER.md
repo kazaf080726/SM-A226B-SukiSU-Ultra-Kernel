@@ -1,5 +1,7 @@
 # SM-A226B 仓库总览 / Repository master guide
 
+> 中文 | [English](REPO-MASTER.en.md)
+
 > 面向接手维护的人：一页看懂仓库是什么、由什么组成、怎么构建、运行时怎么工作、哪里不能动。
 > 细节（47 个改动文件的函数级说明）见 [ARCHITECTURE-V12.md](ARCHITECTURE-V12.md)。
 > 当前基线：**V13**（`v13` tag），内核 4.14.186 / a22x / SM-A226B。

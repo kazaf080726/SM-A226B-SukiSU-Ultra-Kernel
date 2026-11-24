@@ -1,5 +1,7 @@
 # PathMask 4.14 移植说明
 
+> 中文（默认） | [English](README.en.md)
+
 本目录是 [Andrea-lyz/LKM-PathMask](https://github.com/Andrea-lyz/LKM-PathMask)
 v2.8.3 的 4.14 Non-GKI 移植，保留其 KernelSU 模块外壳（service.sh、WebUI、
 配置项），只替换内核态 `.ko`。
