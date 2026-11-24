@@ -2,6 +2,18 @@
 
 ## V28 — 2026-11-24
 
+**V28 补充（当日二次提交）：supercall 侧信道收敛**
+
+- `KernelSU/kernel/supercall/dispatch.c`：`reboot(0xdeadbeef, ...)` 的 app（uid≥10000）
+  调用直接返回 `-EINVAL`，与 stock 一致；
+- `kernel/reboot.c`：app（uid≥10000）完全不进入 `ksu_handle_sys_reboot()`，
+  root/ksud 的 SUSFS/supercall 路径保留（管理器与模块功能实测正常）；
+- 结论：Maple 的 "APatch supercall 键长时序比" 与 "内核超级调用特征
+  kernelsu_traits_count" 来自对 reboot supercall 挂钩的时序/行为观测；app 侧
+  绕过可减少暴露，但 A22 上该项本身按 Maple 自己的说明"受性能波动影响可能不稳定
+  出现"——实测同一内核连续多轮为 ALL CLEAR 与偶发 1 项并存，与 SELinux 隐藏无关。
+
+
 **主题：移除 KPM 垫片，用 LKM（main 分支）同款逻辑在 4.14 内核内实现 SELinux 深度隐藏**
 
 V27 的"通过"是假象：Maple 的 oracle 在 carrier 10s 绑定超时时会短暂"干净"，

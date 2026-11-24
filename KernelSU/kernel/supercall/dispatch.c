@@ -422,6 +422,19 @@ int ksu_handle_sys_reboot(int magic1, int magic2, unsigned int cmd, void __user 
         return -EINVAL; 
     }
 
+    /*
+     * Unprivileged UIDs must not be able to distinguish this hook from stock:
+     * a stock kernel rejects a reboot(2) with a bogus magic immediately with
+     * -EINVAL, before doing any work.  DirtySepolicy/Maple time reboot() with
+     * 0xdeadbeef to detect KernelPatch-style supercalls and count KSU traits;
+     * returning early here keeps both the errno and the syscall latency at the
+     * stock baseline.  The manager/ksud install their driver fd from uid 0, so
+     * they are unaffected.
+     */
+    if (__kuid_val(current_uid()) >= 10000) {
+        return -EINVAL;
+    }
+
     // If magic2 is susfs and current process is root
     if (magic2 == SUSFS_MAGIC && current_uid().val == 0) {
         switch(cmd) {

@@ -10,6 +10,7 @@
 #include <linux/export.h>
 #include <linux/kexec.h>
 #include <linux/kmod.h>
+#include <linux/cred.h>
 #include <linux/kmsg_dump.h>
 #include <linux/reboot.h>
 #include <linux/suspend.h>
@@ -293,7 +294,14 @@ SYSCALL_DEFINE4(reboot, int, magic1, int, magic2, unsigned int, cmd,
 	char buffer[256];
 	int ret = 0;
 #ifdef CONFIG_KSU_SUSFS
-    if (system_state == SYSTEM_RUNNING) {
+    /*
+     * Unprivileged UIDs get the exact stock path: a reboot(2) with a bogus
+     * magic is rejected with -EINVAL and the KernelSU/SUSFS supercall hook is
+     * never reached.  DirtySepolicy/Maple time reboot(0xdeadbeef) to detect
+     * KernelPatch-style supercalls, so apps must not be able to observe the
+     * hook at all.  Root (ksud, su) keeps the full supercall interface.
+     */
+    if (system_state == SYSTEM_RUNNING && __kuid_val(current_uid()) < 10000) {
         ksu_handle_sys_reboot(magic1, magic2, cmd, &arg);
     }
 #endif
