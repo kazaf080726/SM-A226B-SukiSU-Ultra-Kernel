@@ -1,32 +1,38 @@
 # SM-A226B-SukiSU-Ultra-Kernel
 
+> ## ⬆ 重大更新（Major Update）：V28 — 2026-11-24
+> **KPM 垫片已整体移除**，改为与 LKM（main 分支）同源的**内核内 SELinux 深度隐藏**：
+> clean policydb 快照 + 自答 `access/context` + `policy` blob + `setprocattr` 语义 + fake status page。
+> 实测：Maple Ultra **ALL CLEAR**（SELinux 侧信道项消失）、Hunter 6.72 **未发现风险**。
+> 详见 [CHANGELOG V28](docs/CHANGELOG.md) / [发布说明](docs/RELEASE-v28.md)。
+
 [![Build kernel](https://github.com/kazaf080726/SM-A226B-SukiSU-Ultra-Kernel/actions/workflows/build.yml/badge.svg)](https://github.com/kazaf080726/SM-A226B-SukiSU-Ultra-Kernel/actions/workflows/build.yml)
 
 > Samsung Galaxy A22 5G（SM-A226B / a22x / MediaTek MT6833）Linux 4.14.186 内核源码与卡刷包
 >
-> **内核级 Root：SukiSU-Nova**（原 SukiSU-Ultra；builtin，v3.0.0 / KSU_VERSION 35061，随上游 main 漂移）
+> **内核级 Root：SukiSU-Nova**（原 SukiSU-Ultra；builtin，v3.0.0 / KSU_VERSION 35081，随上游 main 漂移）
 >
 > 🌐 中文（默认） | [English](README.en.md)
 
 本仓库是 **SM-A226B 的完整内核源码**（基于三星官方 `SM-A226B_13_Opensource`），
-集成 SukiSU-Ultra、SUSFS、NoMount、PathMask，并把 selinux_hook 的 KPM 源码
-**直接编入内核**，不再依赖 KPatch-Next / kpimg。
+集成 SukiSU-Ultra、SUSFS、NoMount、PathMask；V28 起 SELinux 隐藏改为
+**内核内 LKM 同源实现**（clean policydb 快照 + 自答查询），KPM / KPatch-Next 已整体移除。
 
 所有源码与构建产物永久免费公开，可自行编译、修改、再分发（遵循各组件 GPL 许可）。
 
 ---
 
-## 一、当前版本（V28）
+## 一、当前版本（V28 · 重大更新）
 
 | 组件 | 版本 / 说明 |
 |---|---|
 | 内核 | Linux 4.14.186，Samsung `SM-A226B_13_Opensource` |
-| Root | SukiSU-Nova `builtin`（原 SukiSU-Ultra），v3.0.0，KSU_VERSION **35061**（构建期覆盖，对齐管理器） |
+| Root | SukiSU-Nova `builtin`（原 SukiSU-Ultra），v3.0.0，KSU_VERSION **35081**（构建期覆盖，对齐管理器） |
 | SUSFS | **v2.4.0**（Non-GKI 4.14 移植） |
-| NoMount | **v2.3.0**（内核驱动内置） |
+| NoMount | **v2.3.1**（内核驱动内置） |
 | PathMask | 4.14 移植（`pathmask.ko` + `procguard.ko`，KSU 模块） |
-| SELinux 隐藏 | selinux_hook **1.1.7 全量源码编入**（4.7k 行目录，12 个静态 hook 接线） |
-| 反检测 | clean-policy 引擎、status 伪造、`/access` 真实形状应答、v4 原生过滤层 |
+| SELinux 隐藏 | **内建 LKM 同源引擎（V28）**：clean policydb 快照 / 自答 access·context / policy blob / setprocattr 语义；**无 KPM、无 selinux_hook** |
+| 反检测 | clean-policy 引擎、App 视角 fake status、隐藏上下文 `EINVAL` 语义、app-uid supercall 隔离 |
 | KernelPatch / kpimg | **无**（0 痕迹，不需要 KPatch-Next 模块） |
 
 设备只有 `boot` 分区，没有 `init_boot`；AnyKernel3 刷写路径

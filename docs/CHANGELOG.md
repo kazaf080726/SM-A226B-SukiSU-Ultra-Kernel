@@ -1,20 +1,14 @@
 # 更新记录 / Changelog
 
-## V28 — 2026-11-24
+> ## ⬆ 重大更新（Major Update）：V28 — 2026-11-24
+> **移除 KPM 垫片，用 LKM（main 分支）同款逻辑在内核内实现 SELinux 深度隐藏。**
+> Maple Ultra：ALL CLEAR（SELinux 侧信道项彻底消失）；Hunter 6.72：未发现风险。
+> 详见 [V28](#v28--2026-11-24----重大更新major-update) / [RELEASE-v28](RELEASE-v28.md)。
 
-**V28 补充（当日二次提交）：supercall 侧信道收敛**
-
-- `KernelSU/kernel/supercall/dispatch.c`：`reboot(0xdeadbeef, ...)` 的 app（uid≥10000）
-  调用直接返回 `-EINVAL`，与 stock 一致；
-- `kernel/reboot.c`：app（uid≥10000）完全不进入 `ksu_handle_sys_reboot()`，
-  root/ksud 的 SUSFS/supercall 路径保留（管理器与模块功能实测正常）；
-- 结论：Maple 的 "APatch supercall 键长时序比" 与 "内核超级调用特征
-  kernelsu_traits_count" 来自对 reboot supercall 挂钩的时序/行为观测；app 侧
-  绕过可减少暴露，但 A22 上该项本身按 Maple 自己的说明"受性能波动影响可能不稳定
-  出现"——实测同一内核连续多轮为 ALL CLEAR 与偶发 1 项并存，与 SELinux 隐藏无关。
+## V28 — 2026-11-24 · ⬆ 重大更新（Major Update）
 
 
-**主题：移除 KPM 垫片，用 LKM（main 分支）同款逻辑在 4.14 内核内实现 SELinux 深度隐藏**
+**主题（重大更新）：移除 KPM 垫片，用 LKM（main 分支）同款逻辑在 4.14 内核内实现 SELinux 深度隐藏；这是本项目自 V12 架构以来最大的一次隐藏层重构。**
 
 V27 的"通过"是假象：Maple 的 oracle 在 carrier 10s 绑定超时时会短暂"干净"，
 但真实探针仍然把设备识别为 Root。V28 按 LKM 实现重做：
@@ -56,6 +50,17 @@ V27 的"通过"是假象：Maple 的 oracle 在 carrier 10s 绑定超时时会�
 - `dmesg`：`ksu_selinux_hide: captured clean policy (1522149 bytes)`；
 - `/sys/fs/selinux/status`：root=真实页、App=`1 0 1 0 1`；
 - 无 `/proc/ksu_hide` 等诊断节点（干净版已移除调试埋点）。
+
+### 补充：supercall 侧信道收敛（同日二次提交）
+
+- `KernelSU/kernel/supercall/dispatch.c`：`reboot(0xdeadbeef, ...)` 的 app（uid≥10000）
+  调用直接返回 `-EINVAL`，与 stock 一致；
+- `kernel/reboot.c`：app（uid≥10000）完全不进入 `ksu_handle_sys_reboot()`，
+  root/ksud 的 SUSFS/supercall 路径保留（管理器与模块功能实测正常）；
+- 结论：Maple 的 "APatch supercall 键长时序比" 与 "内核超级调用特征
+  kernelsu_traits_count" 来自对 reboot supercall 挂钩的时序/行为观测；app 侧
+  绕过可减少暴露，但 A22 上该项本身按 Maple 自己的说明"受性能波动影响可能不稳定
+  出现"——实测同一内核连续多轮为 ALL CLEAR 与偶发 1 项并存，与 SELinux 隐藏无关。
 
 ## V27 — 2026-11-24
 
